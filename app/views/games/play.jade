@@ -9,6 +9,7 @@ block content
       li Host ID: #{game.hostId}
       li Partner ID: #{game.partnerId(locals.user._id)}
       li Your Role: #{game.userRole(locals.user._id)}
+    #game
 
 block scripts
   script(src='/js/vendor/phaser.min.js')

@@ -72,7 +72,7 @@ function addUserToSocket(socket)
         {
           if(game)
           {
-            broadcastGame(game, 'joined', {playerId: userId.toString()});
+            broadcastGame(game, 'joined', {isReadyToPlay: game.isReadyToPlay});
           }
         });
       }

@@ -140,6 +140,11 @@ class Game
     return this.players.wizardId.toString() === '';
   }
 
+  get isReadyToPlay()
+  {
+    return !this.isHeroOpen ? !this.isWizardOpen : false;
+  }
+
   get hostId()
   {
     return this.isHostHero ? this.players.heroId : this.players.wizardId;

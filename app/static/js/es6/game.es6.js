@@ -5,14 +5,13 @@
 
 $(function()
 {
-  var game, socket;
+  var game, socket, player, torso, head, states={};
 
   initialize();
 
   function initialize()
   {
-    alert('begin');
-    initializeSocketIo();
+    initializeGameStates();
     window.addEventListener('beforeunload', e=>
     {
       socket.emit('quit', {userId: userId});
@@ -32,7 +31,7 @@ $(function()
     // {
     //   socket.emit('quit', {userId: userId});
     // });
-    game = new Phaser.Game(800, 600, Phaser.AUTO, '', {preload: preload, create: create, update: update});
+    game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', states.boot);
   }
 
   function initializeSocketIo()
@@ -64,19 +63,61 @@ $(function()
 
   function joined(data)
   {
-    console.log('JOINED');
-    console.log(data);
+    if(data.isReadyToPlay)
+    {
+      game.state.start('level');
+    }
+    else
+    {
+      alert('Welcome');
+    }
   }
 
-  function preload()
+  function initializeGameStates()
   {
-  }
+    states.boot = {
+      preload: function()
+      {
+        game.load.image('head', '/assets/character/test/head.png');
+        game.load.image('torso', '/assets/character/test/torso.png');
+        game.load.image('leg', '/assets/character/test/leg.png');
+        game.load.image('arm', '/assets/character/test/arm.png');
+        game.load.image('eye-open', '/assets/character/test/eye-open.png');
+        game.load.image('eye-shut', '/assets/character/test/eye-shut.png');
+        game.stage.disableVisibilityChange = true;
+      },
+      create: function()
+      {
+        game.state.add('level', states.level);
+        initializeSocketIo();
+      }
+    };
+    states.level = {
+      create: function()
+      {
+        game.physics.startSystem(Phaser.Physics.ARCADE);
 
-  function create()
-  {
-  }
+        player = game.add.group();
 
-  function update()
-  {
+        player.enableBody = true;
+
+        torso = player.create(game.width/2, game.height/2, 'torso');
+        torso.anchor.setTo(0.5, 0);
+
+        head = player.create(0, 0, 'head');
+        head.anchor.setTo(0.5, 1);
+        torso.addChild(head);
+
+        game.physics.enable(player, Phaser.Physics.ARCADE);
+
+        head.rotation = Math.PI/6;
+        game.add.tween(head).to({rotation: -Math.PI/6}, 650, Phaser.Easing.Linear.In, true, 100, Number.MAX_VALUE, true);
+      },
+      update: function()
+      {
+        torso.body.velocity.x = 40;
+        // head
+      }
+    };
   }
 });

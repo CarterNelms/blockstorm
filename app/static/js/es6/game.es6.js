@@ -11,6 +11,7 @@ $(function()
 
   function initialize()
   {
+    alert('begin');
     initializeSocketIo();
     window.addEventListener('beforeunload', e=>
     {

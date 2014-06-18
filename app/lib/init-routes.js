@@ -17,9 +17,22 @@ function load(app, fn)
 {
   var home = traceur.require(__dirname + '/../routes/home.js');
   var users = traceur.require(__dirname + '/../routes/users.js');
-  var game = traceur.require(__dirname + '/../routes/game.js');
+  var games = traceur.require(__dirname + '/../routes/games.js');
 
   app.all('*', users.lookup);
+
+  app.get('/games/:gameId', dbg, games.play);
+  app.post('/games', dbg, games.create);
+  app.post('/games/:gameId', dbg, games.join);
+
+  app.all('*', games.cleanup);
+
+  app.get('/games', dbg, games.index);
+  app.get('/games/:gameId', dbg, games.play);
+  app.post('/games', dbg, games.create);
+  app.post('/games/:gameId', dbg, games.join);
+  app.get('/tutorial', dbg, games.tutorial);
+
 
   app.get('/', dbg, home.index);
   app.get('/about', dbg, home.about);
@@ -32,12 +45,6 @@ function load(app, fn)
   app.get('/users', dbg, users.index);
   app.get('/users/:userId/verify', dbg, users.verify);
   app.get('/users/:userId', dbg, users.profile);
-
-  app.get('/games', dbg, game.index);
-  app.post('/games', dbg, game.create);
-  app.get('/games/:gameId', dbg, game.play);
-  app.post('/games/:gameId', dbg, game.join);
-  app.get('/games/tutorial', dbg, game.tutorial);
 
   console.log('Routes Loaded');
   fn();

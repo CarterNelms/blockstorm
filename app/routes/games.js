@@ -12,10 +12,6 @@ exports.index = (req, res)=>{
   });
 };
 
-exports.play = (req, res)=>{
-  res.render('games/play');
-};
-
 exports.tutorial = (req, res)=>{
   res.render('games/tutorial');
 };
@@ -90,5 +86,28 @@ exports.join = (req, res)=>
   else
   {
     res.redirect('/login');
+  }
+};
+
+exports.cleanup = (req, res, next)=>
+{
+  if(res.locals.user && req.url.indexOf('/js/') === -1)
+  {
+    var userId = res.locals.user._id;
+    Game.findByPlayerId(userId, game=>
+    {
+      if(game)
+      {
+        game.quit(userId, next);
+      }
+      else
+      {
+        next();
+      }
+    });
+  }
+  else
+  {
+    next();
   }
 };

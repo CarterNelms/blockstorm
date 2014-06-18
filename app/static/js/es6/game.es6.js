@@ -67,10 +67,6 @@ $(function()
     {
       game.state.start('level');
     }
-    else
-    {
-      alert('Welcome');
-    }
   }
 
   function initializeGameStates()
@@ -89,6 +85,7 @@ $(function()
       create: function()
       {
         game.state.add('level', states.level);
+
         initializeSocketIo();
       }
     };
@@ -115,7 +112,7 @@ $(function()
       },
       update: function()
       {
-        torso.body.velocity.x = 40;
+        torso.body.velocity.x = 20;
         // head
       }
     };

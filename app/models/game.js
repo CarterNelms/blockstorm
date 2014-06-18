@@ -53,7 +53,7 @@ class Game
 
   quit(userId, fn)
   {
-    if(this.isUserHost(userId))
+    if(this.isUserHost(userId) || this.isEmpty)
     {
       this.destroy(()=>fn(null));
     }
@@ -120,6 +120,11 @@ class Game
       return this.players.heroId;
     }
     return null;
+  }
+
+  get isEmpty()
+  {
+    return this.isHeroOpen ? this.isWizardOpen : false;
   }
 
   get isOpen()
@@ -245,23 +250,28 @@ class Game
     {
       if(game)
       {
-        fn(null);
+        game.quit(obj.userId, createNewGame);
       }
       else
       {
-        Base.create(obj, Game, gameCollection, game=>
-        {
-          if(game)
-          {
-            fn(game);
-          }
-          else
-          {
-            fn(null);
-          }
-        });
+        createNewGame();
       }
     });
+
+    function createNewGame()
+    {
+      Base.create(obj, Game, gameCollection, game=>
+      {
+        if(game)
+        {
+          fn(game);
+        }
+        else
+        {
+          fn(null);
+        }
+      });
+    }
   }
 }
 

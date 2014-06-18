@@ -1,0 +1,17 @@
+extends ../shared/template
+
+block content
+  h1 Play
+
+  if locals.user
+    ul
+      li Your ID: #{locals.user._id}
+      li Host ID: #{game.hostId}
+      li Partner ID: #{game.partnerId(locals.user._id)}
+      li Your Role: #{game.userRole(locals.user._id)}
+
+block scripts
+  script(src='/js/vendor/phaser.min.js')
+  script.
+    var userId = '#{locals.user._id.toString()}';
+  script(src='/js/es6/compiled/game.js')

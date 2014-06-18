@@ -1,0 +1,19 @@
+extends ../shared/template
+
+block scripts
+  h1 Games
+
+  if locals.user
+    label Begin a Game
+    form(method='POST' action='/games')
+      label Choose Your Role
+      select(name='isHostHero')
+        option(value=1) Hero
+        option(value=0) Wizard
+      input(name='userId' type='hidden' value=locals.user._id.toString())
+      button Start
+
+  ul
+    each game in games
+      li: form(method='POST' action='/games/#{game._id}')
+        button Join

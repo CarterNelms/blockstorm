@@ -79,7 +79,7 @@ exports.join = (req, res)=>
       }
       else
       {
-        res.redirect('/game');
+        res.redirect('/games');
       }
     });
   }
@@ -91,7 +91,7 @@ exports.join = (req, res)=>
 
 exports.cleanup = (req, res, next)=>
 {
-  if(res.locals.user && req.url.indexOf('/js/') === -1)
+  if(res.locals.user && req.url.indexOf('/js/') === -1 && req.url.indexOf('/assets/') === -1)
   {
     var userId = res.locals.user._id;
     Game.findByPlayerId(userId, game=>

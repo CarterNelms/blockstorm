@@ -1,17 +1,23 @@
-/* global Phaser, io, userId */
+/* global Phaser, io, userId, isUserHero */
 /* jshint unused: false */
 
 'use strict';
 
 $(function()
 {
-  var game, socket, player, torso, head, states={};
+  var game, socket, player, torso, head, hands={}, feet={}, states={}, keys;
 
   initialize();
 
   function initialize()
   {
     initializeGameStates();
+    game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', states.boot);
+  }
+
+  function initializeSocketIo()
+  {
+    socket = io.connect('/game');
     window.addEventListener('beforeunload', e=>
     {
       socket.emit('quit', {userId: userId});
@@ -31,12 +37,6 @@ $(function()
     // {
     //   socket.emit('quit', {userId: userId});
     // });
-    game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', states.boot);
-  }
-
-  function initializeSocketIo()
-  {
-    socket = io.connect('/game');
     socket.on('joined', joined);
     socket.on('disconnected', disconnected);
     socket.on('quit', onPartnerQuit);
@@ -71,49 +71,148 @@ $(function()
 
   function initializeGameStates()
   {
-    states.boot = {
-      preload: function()
-      {
-        game.load.image('head', '/assets/character/test/head.png');
-        game.load.image('torso', '/assets/character/test/torso.png');
-        game.load.image('leg', '/assets/character/test/leg.png');
-        game.load.image('arm', '/assets/character/test/arm.png');
-        game.load.image('eye-open', '/assets/character/test/eye-open.png');
-        game.load.image('eye-shut', '/assets/character/test/eye-shut.png');
-        game.stage.disableVisibilityChange = true;
+    states = {
+      boot: {
+        preload: function()
+        {
+          game.load.image('head', '/assets/character/head/demo.png');
+          game.load.image('torso', '/assets/character/torso/demo.png');
+          game.load.image('foot', '/assets/character/foot/demo.png');
+          game.load.image('hand', '/assets/character/hand/demo.png');
+
+          game.stage.disableVisibilityChange = true;
+        },
+        create: function()
+        {
+          for(var state in states)
+          {
+            game.state.add(state, states[state]);
+          }
+
+          initializeSocketIo();
+        }
       },
-      create: function()
-      {
-        game.state.add('level', states.level);
+      level: {
+        create: function()
+        {
+          game.physics.startSystem(Phaser.Physics.P2JS);
 
-        initializeSocketIo();
-      }
-    };
-    states.level = {
-      create: function()
-      {
-        game.physics.startSystem(Phaser.Physics.ARCADE);
+          // player = game.add.group();
 
-        player = game.add.group();
+          // player.enableBody = true;
 
-        player.enableBody = true;
+          buildPlayer();
 
-        torso = player.create(game.width/2, game.height/2, 'torso');
-        torso.anchor.setTo(0.5, 0);
+          keys = game.input.keyboard.createCursorKeys();
 
-        head = player.create(0, 0, 'head');
-        head.anchor.setTo(0.5, 1);
-        torso.addChild(head);
+          function buildPlayer()
+          {
+            player = game.add.sprite(game.world.width/2, game.world.height/2);
 
-        game.physics.enable(player, Phaser.Physics.ARCADE);
+            createHead();
+            createTorso();
+            createHands();
+            createFeet();
 
-        head.rotation = Math.PI/6;
-        game.add.tween(head).to({rotation: -Math.PI/6}, 650, Phaser.Easing.Linear.In, true, 100, Number.MAX_VALUE, true);
-      },
-      update: function()
-      {
-        torso.body.velocity.x = 20;
-        // head
+            game.physics.enable(player, Phaser.Physics.P2JS);
+
+            buildSkeleton();
+          }
+
+          function createHands()
+          {
+            for(let i = 0; i < 2; ++i)
+            {
+              var limbPos = limbPosition(i);
+              hands[limbPos] = game.add.sprite(0, 0, 'hand');
+              hands[limbPos].anchor.setTo(0.5, -0.5);
+              var armAngleDir = i === 0 ? 1 : -1;
+              var angle = Math.PI/6;
+              hands[limbPos].rotation = armAngleDir*angle;
+              game.add.tween(hands[limbPos]).to({rotation: -armAngleDir*angle}, 750, Phaser.Easing.Linear.In, true, 100, Number.MAX_VALUE, true);
+            }
+          }
+
+          function createFeet()
+          {
+            for(let i = 0; i < 2; ++i)
+            {
+              var limbPos = limbPosition(i);
+              feet[limbPos] = game.add.sprite(0, 0, 'foot');
+              feet[limbPos].anchor.setTo(0.5, -0.75);
+              feet[limbPos].position.y = torso.height/2;
+              var armAngleDir = i === 0 ? 1 : -1;
+              var angle = Math.PI/6;
+              feet[limbPos].rotation = armAngleDir*angle;
+              game.add.tween(feet[limbPos]).to({rotation: -armAngleDir*angle}, 750, Phaser.Easing.Linear.In, true, 100, Number.MAX_VALUE, true);
+            }
+          }
+
+          function limbPosition(i)
+          {
+            return i === 1 ? 'front' : 'back';
+          }
+
+          function createHead()
+          {
+            head = game.add.sprite(0, 0, 'head');
+            head.anchor.setTo(0.5, 1);
+            var angle = Math.PI/36;
+            head.rotation = angle;
+            game.add.tween(head).to({rotation: -angle}, 650, Phaser.Easing.Linear.In, true, 100, Number.MAX_VALUE, true);
+          }
+
+          function createTorso()
+          {
+            torso = game.add.sprite(0, 0, 'torso'); //.create(game.width/2, game.height/2, 'torso');
+            torso.anchor.setTo(0.5, 0);
+          }
+
+          function buildSkeleton()
+          {
+            var parts = [
+              head,
+              hands.back,
+              feet.back,
+              torso,
+              feet.front,
+              hands.front
+            ];
+
+            parts.forEach(part=>
+            {
+              player.addChild(part);
+            });
+          }
+        },
+        update: function()
+        {
+          var speed = {
+            x: game.time.elapsed * game.time.elapsed,
+            y: 0
+          };
+          var inputForce = {};
+          
+          for(let d in speed)
+          {
+            inputForce[d] = isMovingLeft() ? -speed[d]: isMovingRight() ? speed[d] : 0;
+          }
+
+          for(let d in inputForce)
+          {
+            player.body.force[d] = inputForce[d];
+          }
+
+          function isMovingLeft()
+          {
+            return keys.left.isDown && !keys.right.isDown;
+          }
+
+          function isMovingRight()
+          {
+            return keys.right.isDown && !keys.left.isDown;
+          }
+        }
       }
     };
   }

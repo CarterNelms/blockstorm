@@ -5,10 +5,7 @@
 
 $(function()
 {
-  var game, socket, player, torso, head, hands={}, feet={}, states={}, cursors, grounds, world, socketData={};
-  var fps = 30;
-  var then = Date.now();
-  var interval = 1000/fps;
+  var game, socket, player, torso, head, hands={}, feet={}, states={}, cursors, grounds, world;
 
   initialize();
 
@@ -54,8 +51,21 @@ $(function()
 
   function updateHero(data)
   {
-    socketData.player = data;
-    console.log(socketData.player);
+    if(player)
+    {
+      if(player.body)
+      {
+        for(let d in data.force)
+        {
+          // player.body.force[d] = data.force[d];
+          // if(data.velocity[d])
+          // {
+          //   player.body.velocity[d] = data.velocity[d];
+          // }
+          player[d] = data.position[d];
+        }
+      }
+    }
   }
 
   function gameEnded(data)
@@ -133,8 +143,6 @@ $(function()
 
           cursors = game.input.keyboard.createCursorKeys();
 
-          console.log(player.body);
-
           function buildPlayer()
           {
             player = game.add.sprite(game.world.width/20, game.world.height - 100);
@@ -186,8 +194,6 @@ $(function()
               // grass.position.x = randomInt(0, ground.width);
               // grass.position.y = 0;
               // ground.addChild(grass);
-              console.log(grass.world.x);
-              console.log(grass.world.y);
             }
           }
 
@@ -264,49 +270,43 @@ $(function()
           if(isUserHero)
           {
             var isPlrTouchingDown = getIsPlrTouchingDown();
-            var inputForce = getInputForce();
-            applyPlrJumpVelocity();
+            var appliedForce = {
+              x: getInputForce(),
+              y: 0
+            };
+            var appliedVelocity = {
+              x: 0,
+              y: getPlrJumpVelocity()
+            };
 
-            player.body.force.x = inputForce;
+            applyPlrInput();
+          }
+
+          function applyPlrInput()
+          {
+            var playerData = {
+              force: {},
+              velocity: {},
+              position: {}
+            };
+            for(let d in appliedForce)
+            {
+              player.body.force[d] = appliedForce[d];
+              playerData.force[d] = appliedForce[d];
+
+              if(appliedVelocity[d])
+              {
+                player.body.velocity[d] = appliedVelocity[d];
+                playerData.velocity[d] = appliedVelocity[d];
+              }
+
+              playerData.position[d] = player[d];
+            }
 
             socket.emit('hero', {
               userId: userId,
-              playerData: {
-                force: {
-                  x: player.body.force.x,
-                  y: player.body.force.y
-                },
-                velocity: {
-                  x: player.body.velocity.x,
-                  y: player.body.velocity.y
-                },
-                position: {
-                  x: player.x,
-                  y: player.y
-                }
-              }
+              playerData: playerData
             });
-          }
-          else
-          {
-            if(player)
-            {
-              console.log('PLAYER');
-              if(player.body)
-              {
-                console.log('BODY');
-                var data = socketData.player;
-                if(data)
-                {
-                  player.body.force.x = data.force.x;
-                  player.body.force.y = data.force.y;
-                  player.body.velocity.x = data.velocity.x;
-                  player.body.velocity.y = data.velocity.y;
-                  player.x = data.position.x;
-                  player.y = data.position.y;
-                }
-              }
-            }
           }
 
           function getInputForce()
@@ -352,12 +352,13 @@ $(function()
             }
           }
 
-          function applyPlrJumpVelocity()
+          function getPlrJumpVelocity()
           {
             if(cursors.up.isDown && isPlrTouchingDown)
             {
-              player.body.velocity.y = -1200;
+              return -1200;
             }
+            return false;
           }
 
           function getIsPlrTouchingDown()

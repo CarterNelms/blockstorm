@@ -14,6 +14,7 @@ exports.connection = function(socket)
     Game = traceur.require(__dirname + '/../models/game.js');
     addUserToSocket(socket);
     socket.on('quit', quit);
+    socket.on('hero', hero);
   }
 };
 
@@ -21,6 +22,19 @@ exports.disconnect = function(socket)
 {
   removeUserFromSocket(socket);
 };
+
+function hero(data)
+{
+  var userId = data.userId;
+  Game.findPartnerId(userId, partnerId=>
+  {
+    var partner = users[partnerId];
+    if(partner)
+    {
+      partner.socket.emit('hero', data.playerData);
+    }
+  });
+}
 
 function quit(data)
 {

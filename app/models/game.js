@@ -245,6 +245,21 @@ class Game
     Base.findOneByProperties({'players.wizardId': wizardId}, Game, gameCollection, fn);
   }
 
+  static findPartnerId(userId, fn)
+  {
+    Game.findByPlayerId(userId, game=>
+    {
+      if(game)
+      {
+        fn(game.partnerId(userId));
+      }
+      else
+      {
+        fn(null);
+      }
+    });
+  }
+
   static create(obj, fn)
   {
     Game.findByPlayerId(obj.userId, game=>

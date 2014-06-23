@@ -7,17 +7,48 @@ html
     link(href='/less/app.css', rel='stylesheet')
   body
     nav
-      ul
-        li: a(href='/') Home
-        li: a(href='/about') About
-        li: a(href='/users') Users
-        li: a(href='/games') Games
-        if locals.user
-          li: form(method='POST' action='/logout')
-            button Logout
+      .left
+        ul
+          li: a(href='/') Home
+          li: a(href='/about') About
+          li: a(href='/users') Users
+          li: a(href='/games') Games
+      .right
+        ul
+          if locals.user
+            li: form(method='POST' action='/logout')
+              a#logout(href='#') Logout
+            li: a(href='#messageModal') Messages
+          else
+            li: a(href='#loginModal') Login
+            li: a(href='/register') Register
+
+    #messageModal.modal
+      div
+        h2 Message Modal
+        if locals.lastChats
+          each message, index in locals.lastChats.messages
+            if index
+              hr
+
+            - var chatPartner;
+            - locals.lastChats.partners.forEach(function(partner){
+            -   if(partner._id.toString() === message.senderId.toString() || partner._id.toString() === message.recipientId.toString()){
+            -     chatPartner = partner;
+            -   }
+            - });
+            p #{chatPartner.username} - #{message.body}
         else
-          li: a(href='/login') Login
-          li: a(href='/register') Register
+          p You have no messages
+
+    #loginModal.modal
+      div
+        a(href='#close' title='Close').close X
+        h2 Login Modal
+        include ../users/loginForm
+        | Not yet a member? 
+        a(href='/register') Create an account
+
     block content
 
     script(src='/js/vendor/jquery-2.1.1.js')
@@ -28,5 +59,7 @@ html
     script(src='/js/es5/main.js')
     script(src='/js/es6/compiled/main.js')
     script(src='/js/es6/compiled/sockets.js')
+    if !locals.user
+      script(src='/js/es6/compiled/login.js')
 
     block scripts

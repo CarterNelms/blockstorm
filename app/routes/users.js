@@ -8,11 +8,22 @@ exports.lookup = (req, res, next)=>
   var userId = req.session.userId;
   if(userId)
   {
-    console.log(userId);
     User.findById(userId, user=>
     {
-      console.log(user);
       res.locals.user = user;
+      if(user)
+      {
+        user.getLastMsgPerPartner(lastMessages=>
+        {
+          console.log('DONE');
+          res.locals.lastMessages = lastMessages;
+          next();
+        });
+      }
+      else
+      {
+        next();
+      }
       next();
     });
   }
@@ -35,7 +46,17 @@ exports.profile = (req, res)=>
   var userId = req.params.userId;
   User.findById(userId, owner=>
   {
-    res.render('users/profile', {owner: owner});
+    if(res.locals.user)
+    {
+      res.locals.user.distanceFromOtherUserById(owner._id, distance=>
+      {
+        res.render('users/profile', {owner: owner, distance: distance});
+      });
+    }
+    else
+    {
+      res.render('users/profile', {owner: owner});
+    }
   });
 };
 

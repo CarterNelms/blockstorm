@@ -13,8 +13,8 @@ exports.connection = function(socket)
     User = traceur.require(__dirname + '/../models/user.js');
     Game = traceur.require(__dirname + '/../models/game.js');
     addUserToSocket(socket);
-    socket.on('quit', quit);
-    socket.on('hero', hero);
+    socket.on('frameData', frameData);
+    socket.on('message', handleMessage);
   }
 };
 
@@ -23,25 +23,48 @@ exports.disconnect = function(socket)
   removeUserFromSocket(socket);
 };
 
-function hero(data)
+function frameData(data)
 {
-  var userId = data.userId;
+  var socket = this;
+  var userId = getUserIdFromCookie(socket);
   Game.findPartnerId(userId, partnerId=>
   {
     var partner = users[partnerId];
     if(partner)
     {
-      partner.socket.emit('hero', data.playerData);
+      partner.socket.emit('frameData', data);
     }
   });
 }
 
-function quit(data)
+function handleMessage(msg)
 {
+  var fn;
+  switch(msg)
+  {
+    case 'quit':
+      fn = quit;
+      break;
+    case 'dead':
+      fn = dead;
+      break;
+    default:
+  }
   var socket = this;
+  fn(socket);
+}
+
+function dead(socket)
+{
+  var userId = getUserIdFromCookie(socket);
+  broadcastGame(userId, 'dead');
+}
+
+function quit(socket)
+{
   removeUserFromSocket(socket);
 
-  var userId = data.userId;
+  var userId = getUserIdFromCookie(socket);
   Game.findByPlayerId(userId, game=>
   {
     if(game)
@@ -64,46 +87,45 @@ function quit(data)
 
 function addUserToSocket(socket)
 {
+  var userId = getUserIdFromCookie(socket);
+  User.findById(userId, user=>
+  {
+    if(user)
+    {
+      users[userId] = {
+        user: user,
+        socket: socket
+      };
+      socket.nss = {};
+      socket.nss.user = user;
+      Game.findByPlayerId(userId, game=>
+      {
+        if(game)
+        {
+          broadcastGame(game, 'joined', {isReadyToPlay: game.isReadyToPlay});
+        }
+      });
+    }
+  });
+}
+
+function getUserIdFromCookie(socket)
+{
   var cookies = new Cookies(socket.handshake, {}, ['SEC123', '321CES']);
   var encoded = cookies.get('express:sess');
-  var decoded;
-
   if(encoded)
   {
-    decoded = decode(encoded);
-    var userId = decoded.userId;
-    User.findById(userId, user=>
-    {
-      if(user)
-      {
-        users[userId] = {
-          user: user,
-          socket: socket
-        };
-        socket.nss = {};
-        socket.nss.user = user;
-        Game.findByPlayerId(userId, game=>
-        {
-          if(game)
-          {
-            broadcastGame(game, 'joined', {isReadyToPlay: game.isReadyToPlay});
-          }
-        });
-      }
-    });
+    var decoded = decode(encoded);
+    return decoded.userId;
   }
+  return null;
 }
 
 function removeUserFromSocket(socket)
 {
-  var cookies = new Cookies(socket.handshake, {}, ['SEC123', '321CES']);
-  var encoded = cookies.get('express:sess');
-  var decoded;
-
-  if(encoded)
+  var userId = getUserIdFromCookie(socket);
+  if(userId)
   {
-    decoded = decode(encoded);
-    var userId = decoded.userId;
     users[userId] = null;
   }
 }

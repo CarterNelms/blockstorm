@@ -3,9 +3,4 @@ extends ../shared/template
 block content
   h1 Login
 
-  form(method='POST' action='/login')
-    label Email
-      input(type='email' name='email')
-    label Password
-      input(type='password' name='password')
-    button Login
+  include loginForm

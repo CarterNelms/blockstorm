@@ -5,7 +5,22 @@
 
 $(function()
 {
-  var game, socket, player, torso, head, hands={}, feet={}, states={}, cursors, grounds, world;
+  var game,
+  socket,
+  player,
+  torso,
+  head,
+  hands={},
+  feet={},
+  states={},
+  cursors,
+  grounds,
+  platforms,
+  world,
+  socketData={},
+  isHoldingJump=false,
+  previousAnimation;
+  // cameraStep=0;
 
   initialize();
 
@@ -20,7 +35,7 @@ $(function()
     socket = io.connect('/game');
     window.addEventListener('beforeunload', e=>
     {
-      socket.emit('quit', {userId: userId});
+      socket.send('quit');
       // e = e || window.event;
       // var text = 'Do you really want to leave?';
 
@@ -38,6 +53,8 @@ $(function()
     //   socket.emit('quit', {userId: userId});
     // });
     socket.on('joined', joined);
+    socket.on('dead', dead);
+    socket.on('frameData', updateFrameData);
     if(isUserHero)
     {
       socket.on('quit', onPartnerQuit);
@@ -45,26 +62,26 @@ $(function()
     else
     {
       socket.on('ended', gameEnded);
-      socket.on('hero', updateHero);
     }
   }
 
-  function updateHero(data)
+  function dead()
   {
-    if(player)
+    game.state.start('dead');
+  }
+
+  function updateFrameData(data)
+  {
+    if(isUserHero)
     {
-      if(player.body)
-      {
-        for(let d in data.force)
-        {
-          // player.body.force[d] = data.force[d];
-          // if(data.velocity[d])
-          // {
-          //   player.body.velocity[d] = data.velocity[d];
-          // }
-          player[d] = data.position[d];
-        }
-      }
+      console.log('Getting platform data');
+      socketData.platformsData = data.platformsData;
+    }
+    else
+    {
+      console.log('Getting player data');
+      socketData.playerData = data.playerData;
+      socketData.groundData = data.groundData;
     }
   }
 
@@ -122,157 +139,163 @@ $(function()
       level: {
         create: function()
         {
-          game.physics.startSystem(Phaser.Physics.P2JS);
-          world = game.physics.p2;
-          world.useElapsedTime = true;
-          world.setImpactEvents(true);
-          world.gravity.y = 3000;
-          world.restitution = 0;
+          game.physics.startSystem(Phaser.Physics.ARCADE);
+          world = game.physics.arcade;
           game.world.setBounds(0, 0, 1600, 1200);
-
-          var playerCollisionGroup = world.createCollisionGroup();
-          var groundCollisionGroup = world.createCollisionGroup();
-
-          world.updateBoundsCollisionGroup();
 
           buildPlayer();
           buildGround();
+          buildPlatforms();
 
           game.camera.follow(player);
-          // game.camera.deadzone();
+          // game.camera.deadzone = new Phaser.Rectangle(game.width/2, game.world.height/2, player.body.width, game.world.height);
+          game.camera.y = 2400;
 
           cursors = game.input.keyboard.createCursorKeys();
 
           function buildPlayer()
           {
-            player = game.add.sprite(game.world.width/20, game.world.height - 100);
+            player = game.add.sprite(game.world.width/20, game.world.height - 200);
 
             createTorso();
             createHead();
             createHands();
             createFeet();
 
-            game.physics.enable(player, Phaser.Physics.P2JS);
-            player.body.setRectangle(torso.width, torso.height+head.height+feet.back.height);
-            player.body.fixedRotation = true;
-            player.body.collideWorldBounds = true;
+            game.physics.arcade.enable(player);
 
-            player.body.setCollisionGroup(playerCollisionGroup);
-
-            player.body.collides(groundCollisionGroup, playerLanded, this);
-
-            function playerLanded()
-            {
-              console.log('PLAYER LANDED');
-            }
+            player.body.setSize(torso.width, torso.height+head.height+feet.back.height/2);
+            player.body.bounce.y = 0;
+            player.body.gravity.y = 1500;
+            player.body.collideWorldBounds = false;
+            player.anchor.setTo(0.5, (head.height+torso.height/2)/player.body.height);
 
             buildSkeleton();
+
+            function createTorso()
+            {
+              torso = game.add.sprite(0, 0, 'torso');
+              torso.anchor.setTo(0.5, 0.5);
+            }
+
+            function createHead()
+            {
+              head = game.add.sprite(0, 0, 'head');
+              head.anchor.setTo(0.5, 1);
+              head.position.y = -torso.height/2;
+              var headBobDuration = 550;
+              var easing = Phaser.Easing.Sinusoidal.In;
+              game.add.tween(head.position).to({y: -11*torso.height/24}, headBobDuration, easing).to({y: -13*torso.height/24}, headBobDuration, easing).loop().start();
+            }
+
+            function createHands()
+            {
+              for(let i = 0; i < 2; ++i)
+              {
+                var limbPos = limbPosition(i);
+                hands[limbPos] = game.add.sprite(0, 0, 'hand');
+                hands[limbPos].anchor.setTo(0.5, -0.5);
+                hands[limbPos].position.y = -torso.height/2;
+              }
+            }
+
+            function createFeet()
+            {
+              for(let i = 0; i < 2; ++i)
+              {
+                var limbPos = limbPosition(i);
+                feet[limbPos] = game.add.sprite(0, 0, 'foot');
+                feet[limbPos].anchor.setTo(0.5, 0.5-torso.height/feet[limbPos].height);
+                feet[limbPos].position.y = -torso.height/2;
+              }
+            }
+
+            function limbPosition(i)
+            {
+              return i === 1 ? 'front' : 'back';
+            }
+
+            function buildSkeleton()
+            {
+              getBodyParts().forEach(part=>
+              {
+                player.addChild(part);
+              });
+            }
           }
 
           function buildGround()
           {
             grounds = game.add.group();
             grounds.enableBody = true;
-            grounds.physicsBodyType = Phaser.Physics.P2JS;
-            // game.physics.enable(grounds, Phaser.Physics.P2JS);
-            var groundHeight = 120;
-            var ground = grounds.create(0, 0, 'pixel');
+            grounds.physicsBodyType = Phaser.Physics.ARCADE;
+            var groundHeight = 60;
+            var ground = grounds.create(0, game.world.height - groundHeight, 'pixel');
             ground.tint = 0xff3300;
-            ground.body.x = game.world.width/2;
-            ground.body.y = game.world.height - groundHeight/2;
             ground.scale.setTo(game.world.width, groundHeight);
-            ground.body.setRectangle(ground.width, ground.height);
             ground.body.immovable = true;
-            ground.body.setCollisionGroup(groundCollisionGroup);
-            ground.body.collides([groundCollisionGroup, playerCollisionGroup]);
-            ground.body.static = true;
             var grassCount = (ground.width/32)/4;
             for(let i = 0; i < grassCount;++i)
             {
-              var grass = game.add.sprite(randomInt(0, ground.width), game.world.height-50, 'grass1');
+              var grass = game.add.sprite(randomInt(0, ground.width)/ground.width, 0, 'grass1');//randomInt(0, ground.width), game.world.height-50, 'grass1');
               grass.anchor.setTo(0.5, 1);
               // grass.position.x = randomInt(0, ground.width);
               // grass.position.y = 0;
-              // ground.addChild(grass);
+              grass.scale.x = 1/ground.scale.x;
+              grass.scale.y = 1/ground.scale.y;
+              ground.addChild(grass);
             }
           }
 
-          function createHands()
+          function buildPlatforms()
           {
-            for(let i = 0; i < 2; ++i)
+            platforms = game.add.group();
+            platforms.enableBody = true;
+            platforms.physicsBodyType = Phaser.Physics.ARCADE;
+            var platformHeight = 60;
+            var platformCount = 20;
+            for(let i = 0; i < platformCount; ++i)
             {
-              var limbPos = limbPosition(i);
-              hands[limbPos] = game.add.sprite(0, 0, 'hand');
-              hands[limbPos].anchor.setTo(0.5, -0.5);
-              hands[limbPos].position.y = -torso.height/2;
-              var armAngleDir = i === 0 ? 1 : -1;
-              var angle = Math.PI/6;
-              var s = game.add.tween(hands[limbPos]).to({rotation: -armAngleDir*angle}, 750, Phaser.Easing.Linear.In).to({rotation: armAngleDir*angle}, 750, Phaser.Easing.Linear.In).loop();//, true, 100, Number.MAX_VALUE, true);
-              s.start();
+              var platform = platforms.create(0, randomInt(game.world.height - game.height, game.world.height), 'pixel');
+              platform.body.immovable = true;
+              var platformWidth = randomInt(20, 200);
+              platform.scale.setTo(platformWidth, platformHeight);
+              platform.x = randomInt(0, game.world.width - platformWidth);
             }
-          }
-
-          function createFeet()
-          {
-            for(let i = 0; i < 2; ++i)
-            {
-              var limbPos = limbPosition(i);
-              feet[limbPos] = game.add.sprite(0, 0, 'foot');
-              feet[limbPos].anchor.setTo(0.5, -0.25);
-              feet[limbPos].position.y = torso.height/2;
-              var armAngleDir = i === 0 ? 1 : -1;
-              var angle = Math.PI/6;
-              feet[limbPos].rotation = armAngleDir*angle;
-              game.add.tween(feet[limbPos]).to({rotation: -armAngleDir*angle}, 750, Phaser.Easing.Linear.In, true, 100, Number.MAX_VALUE, true);
-            }
-          }
-
-          function limbPosition(i)
-          {
-            return i === 1 ? 'front' : 'back';
-          }
-
-          function createHead()
-          {
-            head = game.add.sprite(0, 0, 'head');
-            head.anchor.setTo(0.5, 1);
-            head.position.y = -torso.height/2;
-            var angle = Math.PI/36;
-            head.rotation = angle;
-            game.add.tween(head).to({rotation: -angle}, 650, Phaser.Easing.Linear.In, true, 100, Number.MAX_VALUE, true);
-          }
-
-          function createTorso()
-          {
-            torso = game.add.sprite(0, 0, 'torso'); //.create(game.width/2, game.height/2, 'torso');
-            torso.anchor.setTo(0.5, 0.5);
-          }
-
-          function buildSkeleton()
-          {
-            var parts = [
-              head,
-              hands.back,
-              feet.back,
-              torso,
-              feet.front,
-              hands.front
-            ];
-
-            parts.forEach(part=>
-            {
-              player.addChild(part);
-            });
           }
         },
+        // render: function()
+        // {
+        //   game.debug.body(player);
+        // },
         update: function()
         {
+          updateSocketData();
+
+          game.physics.arcade.collide(player, grounds);
+          game.physics.arcade.collide(player, platforms);
+
+          var isMoving = isUserHero ? {
+            left: cursors.left.isDown && !cursors.right.isDown,
+            right: cursors.right.isDown && !cursors.left.isDown
+          } : undefined;
+          var plrMaxSpeed = 1000;
+          var currentAnimation = getPlrAnimation();
           if(isUserHero)
           {
-            var isPlrTouchingDown = getIsPlrTouchingDown();
-            var appliedForce = {
-              x: getInputForce(),
-              y: 0
+            var acceleration = 0;
+            if(shouldPlrSlowDown())
+            {
+              slowPlrDown();
+            }
+            else
+            {
+              acceleration = getInputAcceleration();
+            }
+
+            var appliedAcceleration = {
+              x: acceleration,
+              y: applyJumpBoost()
             };
             var appliedVelocity = {
               x: 0,
@@ -280,114 +303,631 @@ $(function()
             };
 
             applyPlrInput();
+            forcePlrOnScreen();
+            checkForDeath();
+          }
+          else
+          {
+            console.log('yer a wizard');
+          }
+          raiseCamera();
+          animate();
+          orientPlrSpriteDirection();
+          sendFrameInfoToPartner();
+
+          function updateSocketData()
+          {
+            if(socketData)
+            {
+              if(isUserHero)
+              {
+                var platformsData = socketData.platformsData;
+                if(platformsData)
+                {
+                  platformsData.forEach((platformData, i)=>
+                  {
+                    platforms.children[i].body.position = platformData.position;
+                    platforms.children[i].scale = platformData.scale;
+                  });
+                }
+              }
+              else
+              {
+                var playerData = socketData.playerData;
+                if(playerData)
+                {
+                  player.body.acceleration = playerData.acceleration;
+                  player.body.position = playerData.position;
+                  for(let d in playerData.velocity)
+                  {
+                    var velocity = playerData.velocity[d];
+                    if(velocity)
+                    {
+                      player.body.velocity[d] = velocity;
+                    }
+                  }
+                }
+                var groundData = socketData.groundData;
+                if(groundData)
+                {
+                  grounds.children[0].body.position = groundData.position;
+                }
+              }
+            }
+
+          }
+
+          function checkForDeath()
+          {
+            if(player.body.position.y > game.world.height)
+            {
+              socket.send('dead');
+            }
+          }
+
+          function raiseCamera()
+          {
+            var cameraStep = 0.02 * game.time.elapsed;
+            if(isUserHero)
+            {
+              player.y += cameraStep;
+              grounds.children.forEach(ground=>
+              {
+                ground.y += cameraStep;
+              });
+            }
+            else
+            {
+              platforms.children.forEach(platform=>
+              {
+                platform.y += cameraStep;
+              });
+            }
+          }
+
+          function forcePlrOnScreen()
+          {
+            var horizontalWorldBounds = {
+              left: player.body.width,
+              right: game.world.width-player.body.width
+            };
+            var oldPlrPosX = player.x;
+            player.x = clamp(player.x, player.body.width, game.world.width-player.body.width);
+            if(player.x !== oldPlrPosX){player.body.velocity.x = 0;}
+          }
+
+          function sendFrameInfoToPartner()
+          {
+            if(isUserHero)
+            {
+              var playerData = {
+                acceleration: player.body.acceleration,
+                velocity: player.body.velocity,
+                position: player.body.position,
+                animation: currentAnimation,
+                scale: player.scale
+              };
+
+              var groundData = {
+                position: grounds.children[0].body.position
+              };
+
+              socket.emit('frameData', {
+                playerData: playerData,
+                groundData: groundData
+              });
+            }
+            else
+            {
+              var platformsData = platforms.children.map(platform=>
+              {
+                return {
+                  position: platform.body.position,
+                  scale: platform.scale
+                };
+              });
+
+              socket.emit('frameData', {
+                platformsData: platformsData
+              });
+            }
+          }
+
+          function orientPlrSpriteDirection()
+          {
+            if(isUserHero)
+            {
+              if(isMoving.left)
+              {
+                player.scale.x = -1;
+              }
+              else if(isMoving.right)
+              {
+                player.scale.x = 1;
+              }
+            }
+            else if(socketData)
+            {
+              var playerData = socketData.playerData;
+              if(playerData)
+              {
+                player.scale.x = playerData.scale.x;
+              }
+            }
+          }
+
+          function applyJumpBoost()
+          {
+            if(isHoldingJump && player.body.velocity.y <= 0 && !isPlrGrounded())
+            {
+              return -600;
+            }
+            return 0;
+          }
+
+          function animate()
+          {
+            if(currentAnimation !== previousAnimation)
+            {
+              previousAnimation = currentAnimation;
+              stopPreviousAnimation();
+
+              var plrAnimations = {
+                run: {
+                  head: {
+                    start: function()
+                    {
+                      var animType = plrAnimations.run;
+                      var animator = animType.head;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: Math.PI/6}, data.getDuration(), Phaser.Easing.Linear.In);
+                      this.tween.onComplete.addOnce(animator.end, this);
+                      this.tween.start();
+                    },
+                    end: function()
+                    {
+                      var animType = plrAnimations.run;
+                      var animator = animType.head;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: 0}, data.getDuration(), Phaser.Easing.Linear.In);
+                      this.tween.onComplete.addOnce(animator.start, this);
+                      this.tween.start();
+                    },
+                    data: {
+                      getDuration: ()=>400
+                    }
+                  },
+                  torso: {
+                    start: function()
+                    {
+                      var animType = plrAnimations.run;
+                      var animator = animType.torso;
+                      var data = animator.data;
+                      game.add.tween(this.position).to({y: 0}, data.getDuration(), Phaser.Easing.Linear.In).start();
+                      this.tween = game.add.tween(this).to({rotation: Math.PI/6}, data.getDuration(), Phaser.Easing.Linear.In);
+                      this.tween.onComplete.addOnce(animator.end, this);
+                      this.tween.start();
+                    },
+                    end: function()
+                    {
+                      var animType = plrAnimations.run;
+                      var animator = animType.torso;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: 0}, data.getDuration(), Phaser.Easing.Linear.In);
+                      this.tween.onComplete.addOnce(animator.start, this);
+                      this.tween.start();
+                    },
+                    data: {
+                      getDuration: ()=>400
+                    }
+                  },
+                  hand: {
+                    forward: function()
+                    {
+                      var animType = plrAnimations.run;
+                      var typeData = animType.data;
+                      var animator = animType.hand;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: data.getAngle()}, typeData.getLimbDuration(), Phaser.Easing.Linear.In);
+                      this.tween.onComplete.addOnce(animator.backward, this);
+                      this.tween.start();
+                    },
+                    backward: function()
+                    {
+                      var animType = plrAnimations.run;
+                      var typeData = animType.data;
+                      var animator = animType.hand;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: -data.getAngle()}, typeData.getLimbDuration(), Phaser.Easing.Linear.In);
+                      this.tween.onComplete.addOnce(animator.forward, this);
+                      this.tween.start();
+                    },
+                    data: {
+                      getAngle: ()=>Math.PI/3
+                    }
+                  },
+                  foot: {
+                    forward: function()
+                    {
+                      var animType = plrAnimations.run;
+                      var typeData = animType.data;
+                      var animator = animType.foot;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: data.getAngle()}, typeData.getLimbDuration(), Phaser.Easing.Linear.In);
+                      this.tween.onComplete.addOnce(animator.backward, this);
+                      this.tween.start();
+                    },
+                    backward: function()
+                    {
+                      var animType = plrAnimations.run;
+                      var typeData = animType.data;
+                      var animator = animType.foot;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: -data.getAngle()}, typeData.getLimbDuration(), Phaser.Easing.Linear.In);
+                      this.tween.onComplete.addOnce(animator.forward, this);
+                      this.tween.start();
+                    },
+                    data: {
+                      getAngle: ()=>Math.PI/6
+                    }
+                  },
+                  data: {
+                    getLimbDuration: ()=>Math.round(100 + 150*clamp(1 - getCurrentSpeed()/plrMaxSpeed))
+                  }
+                },
+                stand: {
+                  head: {
+                    reset: function()
+                    {
+                      var animType = plrAnimations.stand;
+                      var animator = animType.head;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: 0}, data.getDuration(), Phaser.Easing.Quadratic.Out);
+                      this.tween.start();
+                    },
+                    data: {
+                      getDuration: ()=>550
+                    }
+                  },
+                  torso: {
+                    reset: function()
+                    {
+                      var animType = plrAnimations.stand;
+                      var animator = animType.torso;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: 0}, data.getDuration(), Phaser.Easing.Quadratic.Out);
+                      this.tween.start();
+                    },
+                    data: {
+                      getDuration: ()=>400
+                    }
+                  },
+                  hand: {
+                    startForward: function()
+                    {
+                      var animType = plrAnimations.stand;
+                      var typeData = animType.data;
+                      var animator = animType.hand;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: data.getAngle()}, data.getStartDuration(), Phaser.Easing.Quadratic.Out);
+                      this.tween.onComplete.addOnce(animator.backward, this);
+                      this.tween.start();
+                    },
+                    startBackward: function()
+                    {
+                      var animType = plrAnimations.stand;
+                      var typeData = animType.data;
+                      var animator = animType.hand;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: -data.getAngle()}, data.getStartDuration(), Phaser.Easing.Quadratic.Out);
+                      this.tween.onComplete.addOnce(animator.forward, this);
+                      this.tween.start();
+                    },
+                    forward: function()
+                    {
+                      var animType = plrAnimations.stand;
+                      var typeData = animType.data;
+                      var animator = animType.hand;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: data.getAngle()}, typeData.getLimbDuration(), Phaser.Easing.Quadratic.Out);
+                      this.tween.onComplete.addOnce(animator.backward, this);
+                      this.tween.start();
+                    },
+                    backward: function()
+                    {
+                      var animType = plrAnimations.stand;
+                      var typeData = animType.data;
+                      var animator = animType.hand;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: -data.getAngle()}, typeData.getLimbDuration(), Phaser.Easing.Quadratic.Out);
+                      this.tween.onComplete.addOnce(animator.forward, this);
+                      this.tween.start();
+                    },
+                    data: {
+                      getAngle: ()=>Math.PI/16,
+                      getStartDuration: ()=>200
+                    }
+                  },
+                  foot: {
+                    reset: function()
+                    {
+                      var animType = plrAnimations.stand;
+                      var typeData = animType.data;
+                      var animator = animType.foot;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: 0}, 100, Phaser.Easing.Quadratic.Out);
+                      this.tween.start();
+                    }
+                  },
+                  data: {
+                    getLimbDuration: ()=>1300
+                  }
+                },
+                fall: {
+                  head: {
+                    reset: function()
+                    {
+                      var animType = plrAnimations.fall;
+                      var animator = animType.head;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: 0}, data.getDuration(), Phaser.Easing.Quadratic.Out);
+                      this.tween.start();
+                    },
+                    data: {
+                      getDuration: ()=>550
+                    }
+                  },
+                  torso: {
+                    reset: function()
+                    {
+                      var animType = plrAnimations.stand;
+                      var animator = animType.torso;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: 0}, data.getDuration(), Phaser.Easing.Quadratic.Out);
+                      this.tween.start();
+                    },
+                    data: {
+                      getDuration: ()=>400
+                    }
+                  },
+                  hand: {
+                    restart: function()
+                    {
+                      this.rotation = -Math.PI;
+                      var animType = plrAnimations.fall;
+                      triggerAnimation(this, animType.hand.start);
+                    },
+                    start: function()
+                    {
+                      var animType = plrAnimations.fall;
+                      var typeData = animType.data;
+                      var animator = animType.hand;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: 0}, typeData.getLimbDuration(), Phaser.Easing.Linear.Out);
+                      this.tween.onComplete.addOnce(animator.end, this);
+                      this.tween.start();
+                    },
+                    end: function()
+                    {
+                      var animType = plrAnimations.fall;
+                      var typeData = animType.data;
+                      var animator = animType.hand;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: Math.PI}, typeData.getLimbDuration(), Phaser.Easing.Linear.Out);
+                      this.tween.onComplete.addOnce(animator.restart, this);
+                      this.tween.start();
+                    },
+                    data: {
+                      getAngle: ()=>Math.PI/16
+                    }
+                  },
+                  foot: {
+                    forward: function()
+                    {
+                      var animType = plrAnimations.run;
+                      var typeData = animType.data;
+                      var animator = animType.foot;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: data.getAngle()}, typeData.getLimbDuration(), Phaser.Easing.Linear.In);
+                      this.tween.onComplete.addOnce(animator.backward, this);
+                      this.tween.start();
+                    },
+                    backward: function()
+                    {
+                      var animType = plrAnimations.run;
+                      var typeData = animType.data;
+                      var animator = animType.foot;
+                      var data = animator.data;
+                      this.tween = game.add.tween(this).to({rotation: -data.getAngle()}, typeData.getLimbDuration(), Phaser.Easing.Linear.In);
+                      this.tween.onComplete.addOnce(animator.forward, this);
+                      this.tween.start();
+                    },
+                    data: {
+                      getAngle: ()=>Math.PI/6
+                    }
+                  },
+                  data: {
+                    getLimbDuration: ()=>175
+                  }
+                }
+              };
+
+              var startAnimation = {
+                run: function()
+                {
+                  var animType = plrAnimations.run;
+                  triggerAnimation(head, animType.head.start);
+                  triggerAnimation(torso, animType.torso.start);
+                  for(let limbPos in feet)
+                  {
+                    triggerAnimation(hands[limbPos], limbPos === 'back' ? animType.hand.forward : animType.hand.backward);
+                    triggerAnimation(feet[limbPos], limbPos === 'front' ? animType.foot.forward : animType.foot.backward);
+                  }
+                },
+                fall: function()
+                {
+                  var animType = plrAnimations.fall;
+                  triggerAnimation(head, animType.head.reset);
+                  triggerAnimation(torso, animType.torso.reset);
+                  for(let limbPos in feet)
+                  {
+                    triggerAnimation(hands[limbPos], limbPos === 'back' ? animType.hand.start : animType.hand.end);
+                    triggerAnimation(feet[limbPos], limbPos === 'front' ? animType.foot.forward : animType.foot.backward);
+                  }
+                },
+                stand: function()
+                {
+                  var animType = plrAnimations.stand;
+                  triggerAnimation(head, animType.head.reset);
+                  triggerAnimation(torso, animType.torso.reset);
+                  for(let limbPos in feet)
+                  {
+                    triggerAnimation(hands[limbPos], limbPos === 'back' ? animType.hand.startForward : animType.hand.startBackward);
+                    triggerAnimation(feet[limbPos], animType.foot.reset);
+                  }
+                }
+              };
+
+              switch(currentAnimation)
+              {
+                case 'run':
+                  startAnimation.run();
+                  break;
+                case 'fall':
+                  startAnimation.fall();
+                  break;
+                default:
+                  startAnimation.stand();
+              }
+            }
+
+            function stopPreviousAnimation()
+            {
+              getBodyParts().forEach(part=>
+              {
+                if(part.tween)
+                {
+                  part.tween.stop();
+                }
+              });
+            }
+
+            function triggerAnimation(sprite, firstAnimFunction)
+            {
+              sprite.tween = game.add.tween(sprite);
+              sprite.tween.onStart.addOnce(firstAnimFunction, sprite);
+              sprite.tween.start();
+            }
+          }
+
+          function shouldPlrSlowDown()
+          {
+            return !isMoving.left && !isMoving.right && isPlrGrounded() && getCurrentSpeed() > 1;
           }
 
           function applyPlrInput()
           {
-            var playerData = {
-              force: {},
-              velocity: {},
-              position: {}
-            };
-            for(let d in appliedForce)
+            player.body.acceleration = appliedAcceleration;
+
+            for(let d in appliedVelocity)
             {
-              player.body.force[d] = appliedForce[d];
-              playerData.force[d] = appliedForce[d];
-
-              if(appliedVelocity[d])
+              var velocity = appliedVelocity[d];
+              if(velocity)
               {
-                player.body.velocity[d] = appliedVelocity[d];
-                playerData.velocity[d] = appliedVelocity[d];
+                player.body.velocity[d] = velocity;
               }
-
-              playerData.position[d] = player[d];
             }
-
-            socket.emit('hero', {
-              userId: userId,
-              playerData: playerData
-            });
           }
 
-          function getInputForce()
+          function getPlrAnimation()
           {
-            var isMoving = {
-              left: cursors.left.isDown && !cursors.right.isDown,
-              right: cursors.right.isDown && !cursors.left.isDown
-            };
-
-            var plrVelocityDirection = player.body.velocity.x > 0 ? -1 : player.body.velocity.x < 0 ? 1 : 0;
-
-            var force = 0;
-            var shouldPlrSlowDown = !isMoving.left && !isMoving.right && isPlrTouchingDown && Math.abs(player.body.velocity.x) > 1;
-            if(shouldPlrSlowDown)
+            if(isUserHero)
             {
-              force = slowPlrDown();
+              if(!isPlrGrounded())
+              {
+                return 'fall';
+              }
+              if(isMoving.left || isMoving.right)
+              {
+                return 'run';
+              }
             }
-            else
+            else if(socketData)
             {
-              force = applyPlrMoveInput();
+              if(socketData.playerData)
+              {
+                return socketData.playerData.animation;
+              }
             }
-            return force;
+            return 'stand'; // Default animation
+          }
 
-            function applyPlrMoveInput()
-            {
-              var plrInputDirection = isMoving.right ? 1 : isMoving.left ? -1 : 0;
+          function getInputAcceleration()
+          {
+            var plrInputDirection = isMoving.right ? 1 : isMoving.left ? -1 : 0;
 
-              var isPlrMovingForward = plrVelocityDirection === plrInputDirection;
+            var plrVelocityDirection = player.body.velocity.x > 0 ? 1 : player.body.velocity.x < 0 ? -1 : 0;
 
-              var plrMaxSpeed = 100;
+            var isPlrMovingForward = plrVelocityDirection === plrInputDirection;
 
-              var plrMaxAcceleration = 2400;
-              var plrAcceleration = !isPlrMovingForward ? plrMaxAcceleration : Math.abs(player.body.velocity.x) <= plrMaxSpeed ? plrMaxAcceleration*clamp((plrMaxSpeed - Math.abs(player.body.velocity.x))/plrMaxSpeed) : 0;
-              var inputForce = plrAcceleration;// * game.time.elapsed * game.time.elapsed;
-              inputForce *= isMoving.left ? -1: isMoving.right ? 1 : 0;
-              return inputForce;
-            }
+            var plrMaxAcceleration = isPlrGrounded() ? 1800 : 800;
+            var plrAcceleration = !isPlrMovingForward ? plrMaxAcceleration : getCurrentSpeed() <= plrMaxSpeed ? plrMaxAcceleration*clamp((plrMaxSpeed - getCurrentSpeed())/plrMaxSpeed) : 0;
+            plrAcceleration *= isMoving.left ? -1: isMoving.right ? 1 : 0;
+            return plrAcceleration;
+          }
 
-            function slowPlrDown()
-            {
-              var slowDownForce = 1000;
-              return slowDownForce * -plrVelocityDirection;
-            }
+          function slowPlrDown()
+          {
+            player.body.velocity.x *= 0.8;
           }
 
           function getPlrJumpVelocity()
           {
-            if(cursors.up.isDown && isPlrTouchingDown)
+            if(isHoldingJump && !cursors.up.isDown)
             {
-              return -1200;
+              isHoldingJump = false;
+            }
+            if(isPlrGrounded() && cursors.up.isDown && !isHoldingJump)
+            {
+              isHoldingJump = true;
+              return -600;
             }
             return false;
           }
 
-          function getIsPlrTouchingDown()
+          function isPlrGrounded()
           {
-            var downAxis = p2.vec2.fromValues(0, 1);
-            var result = false;
-            var contactEquations = world.world.narrowphase.contactEquations;
-
-            contactEquations.forEach(c=>
-            {
-              if(!result)
-              {
-                var isBodyA = c.bodyA === player.body.data;
-                var isBodyB = c.bodyB === player.body.data;
-                if(isBodyA || isBodyB)
-                {
-                  var normalDown = p2.vec2.dot(c.normalA, downAxis);
-                  normalDown *= isBodyA ? -1 : 1;
-                  if(normalDown > 0.5)
-                  {
-                    result = true;
-                  }
-                }
-              }
-            });
-            return result;
+            return player.body.touching.down;
           }
+        }
+      },
+      dead: {
+        create: function()
+        {
+          console.log('Entering dead state');
+        },
+        update: function()
+        {
+          console.log('Dead state');
         }
       }
     };
+
+    function getCurrentSpeed()
+    {
+      return Math.abs(player.body.velocity.x);
+    }
+
+    function getBodyParts()
+    {
+      return [
+        hands.back,
+        feet.back,
+        torso,
+        head,
+        feet.front,
+        hands.front
+      ];
+    }
   }
 });

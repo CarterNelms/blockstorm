@@ -5,8 +5,11 @@
 var userCollection = global.nss.db.collection('users');
 var traceur = require('traceur');
 var Base = traceur.require(__dirname + '/base.js');
+var Message = traceur.require(__dirname + '/message.js');
 var request = require('request');
 var bcrypt = require('bcrypt');
+var _ = require('lodash');
+var sort = traceur.require(__dirname + '/../lib/sort.js');
 
 class User
 {
@@ -16,6 +19,11 @@ class User
     this.username = obj.username;
     this.password = bcrypt.hashSync(obj.password[0], 8);
     this.isValid = false;
+    this.highScore = 0;
+    this.location = {
+      latitude: null,
+      longitude: null
+    };
   }
 
   verify(fn)
@@ -29,6 +37,109 @@ class User
     Base.save(this, userCollection, fn);
   }
 
+  getLastMsgPerPartner(fn)
+  {
+    this.getPastChatPartners(partners=>
+    {
+      var lastMessages = [];
+      var messagesLeft = partners.length;
+      partners.forEach(partner=>
+      {
+        Message.getHistoryByIds(this._id, partner._id, messages=>
+        {
+          var lastMessage = messages[messages.length-1];
+          lastMessages.push(lastMessage);
+
+          if(!(--messagesLeft))
+          {
+            lastMessages = sort.messages.byDate(lastMessages);
+            var lastChats = {
+              messages: lastMessages,
+              partners: partners
+            };
+            fn(lastChats);
+          }
+        });
+      });
+    });
+  }
+
+  getAllMessages(fn)
+  {
+    Message.findBySenderId(this._id, sent=>
+    {
+      Message.findByRecipientId(this._id, received=>
+      {
+        var messages = sent.concat(received);
+        fn(messages);
+      });
+    });
+  }
+
+  getPastChatPartners(fn)
+  {
+    this.getAllMessages(messages=>
+    {
+      var partnerIds = _(messages).map(message=>
+      {
+        var isSender = message.senderId.toString() === this._id.toString();
+        if(isSender)
+        {
+          return message.recipientId;
+        }
+        return message.senderId;
+      }).map(id=>id.toString()).unique().value();
+
+      var partners = [];
+      var parntersLeft = partnerIds.length;
+      partnerIds.forEach(partnerId=>
+      {
+        User.findById(partnerId, partner=>
+        {
+          partners.push(partner);
+          if(!(--parntersLeft))
+          {
+            fn(partners);
+          }
+        });
+      });
+    });
+  }
+
+  updateLocation(location, fn)
+  {
+    this.location = location;
+    this.save(user=>fn(user));
+  }
+
+  distanceFromOtherUserById(targetId, fn)
+  {
+    User.findById(targetId, target=>
+    {
+      fn(distance(this.location, target.location));
+
+      function distance(loc1, loc2)
+      {
+        var earthRadius = 6371;
+        var dLat = toRad((loc2.latitude-loc1.latitude));  // Javascript functions in radians
+        var dLon = toRad((loc2.longitude-loc1.longitude)); 
+        // Took this equation from Yahoo Answers for find the distance between 2 lat/lng coords
+        var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(toRad(loc1.latitude)) * Math.cos(toRad(loc2.latitude)) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2); 
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        var d = earthRadius * c; // Distance in km
+        var miles = d * 1000 * 100 / 2.54 / 12 / 5280;
+        return miles;
+
+        function toRad(num)
+        {
+          return num * Math.PI / 180;
+        }
+      }
+    });
+  }
+
   static login(obj, fn=()=>{})
   {
     User.findByEmail(obj.email, user=>
@@ -38,7 +149,21 @@ class User
         var isMatch = bcrypt.compareSync(obj.password, user.password);
         if(isMatch && user.isValid)
         {
-          fn(user);
+          if(obj.useLocation && obj.latitude && obj.longitude)
+          {
+            var location = {
+              latitude: obj.latitude,
+              longitude: obj.longitude
+            };
+            user.updateLocation(location, user=>
+            {
+              fn(user);
+            });
+          }
+          else
+          {
+            fn(user);
+          }
         }
         else
         {

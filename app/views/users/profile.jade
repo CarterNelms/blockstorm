@@ -1,4 +1,13 @@
 extends ../shared/template
 
 block content
-  h1= owner.username
+  table
+    thead
+      tr
+        th= owner.username
+        if distance
+          th - #{distance.toFixed(2)}
+    tbody
+      tr
+        td
+        td

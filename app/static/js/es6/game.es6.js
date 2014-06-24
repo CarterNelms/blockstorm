@@ -73,15 +73,7 @@ $(function()
 
   function updateFrameData(data)
   {
-    if(isUserHero)
-    {
-      socketData.platformsData = data.platformsData;
-    }
-    else
-    {
-      socketData.playerData = data.playerData;
-      socketData.groundData = data.groundData;
-    }
+    socketData = data;
   }
 
   function gameEnded(data)
@@ -272,9 +264,10 @@ $(function()
         update: function()
         {
           updateSocketData();
-
+          
           game.physics.arcade.collide(player, grounds);
-          game.physics.arcade.collide(player, platforms);
+          var platformsTouchedThisRound = platforms.children.map(()=>false);
+          game.physics.arcade.collide(player, platforms, touchPlatform, null, this);
 
           var isMoving = isUserHero ? {
             left: cursors.left.isDown && !cursors.right.isDown,
@@ -316,11 +309,20 @@ $(function()
           orientPlrSpriteDirection();
           sendFrameInfoToPartner();
 
+          function touchPlatform(plr, platform)
+          {
+            console.log('IS TOUCHED');
+            var index = platforms.getIndex(platform);
+            console.log(index);
+            platformsTouchedThisRound[index] = true;
+            console.log('TOUCHED');
+          }
+
           function resetDeadPlatforms()
           {
             platforms.children.forEach(platform=>
             {
-              if(isBelowKillLine(platform.body.position.y + player.body.height))
+              if(isBelowKillLine(platform.body.position.y - player.body.height))
               {
                 resetPlatform(platform);
               }
@@ -338,13 +340,15 @@ $(function()
             {
               if(isUserHero)
               {
-                var platformsData = socketData.platformsData;
+                let platformsData = socketData.platformsData;
                 if(platformsData)
                 {
                   platformsData.forEach((platformData, i)=>
                   {
-                    platforms.children[i].body.position = platformData.position;
-                    platforms.children[i].scale = platformData.scale;
+                    var platform = platforms.getAt(i);
+                    platform.body.position = platformData.position;
+                    platform.scale = platformData.scale;
+                    platform.tint = platformData.tint;
                   });
                 }
               }
@@ -368,6 +372,23 @@ $(function()
                 if(groundData)
                 {
                   grounds.children[0].body.position = groundData.position;
+                }
+                let platformsData = socketData.platformsData;
+                if(platformsData)
+                {
+                  platformsData.platformsTouchedThisRound.forEach((isTouched, i)=>
+                  {
+                    var platform = platforms.getAt(i);
+                    if(isTouched)
+                    {
+                      platform.platformData.isTouched = true;
+                    }
+
+                    if(platform.platformData.isTouched)
+                    {
+                      platform.tint = 0xffff00;
+                    }
+                  });
                 }
               }
             }
@@ -432,18 +453,24 @@ $(function()
                 position: grounds.children[0].body.position
               };
 
+              let platformsData = {
+                platformsTouchedThisRound: platformsTouchedThisRound
+              };
+
               socket.emit('frameData', {
                 playerData: playerData,
-                groundData: groundData
+                groundData: groundData,
+                platformsData: platformsData
               });
             }
             else
             {
-              var platformsData = platforms.children.map(platform=>
+              let platformsData = platforms.children.map(platform=>
               {
                 return {
                   position: platform.body.position,
-                  scale: platform.scale
+                  scale: platform.scale,
+                  tint: platform.tint
                 };
               });
 
@@ -933,15 +960,16 @@ $(function()
       }
     };
 
-    function resetPlatform(platform, platformWidth)
+    function resetPlatform(platform)
     {
-      if(!platformWidth)
-      {
-        platformWidth = getPlatformWidth;
-      }
+      var platformWidth = getPlatformWidth();
       platform.scale.setTo(platformWidth, platformHeight);
-      platform.x = randomInt(game.world.width - platformWidth, 0);
+      platform.x = randomInt(0, game.world.width - platformWidth);
       platform.y = -platformHeight;
+      platform.tint = 0x1199ff;
+      platform.platformData = {
+        isTouched: false
+      };
     }
 
     function getPlatformWidth()

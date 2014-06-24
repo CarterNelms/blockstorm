@@ -19,7 +19,8 @@ $(function()
   world,
   socketData={},
   isHoldingJump=false,
-  previousAnimation;
+  previousAnimation,
+  platformHeight=60;
   // cameraStep=0;
 
   initialize();
@@ -74,12 +75,10 @@ $(function()
   {
     if(isUserHero)
     {
-      console.log('Getting platform data');
       socketData.platformsData = data.platformsData;
     }
     else
     {
-      console.log('Getting player data');
       socketData.playerData = data.playerData;
       socketData.groundData = data.groundData;
     }
@@ -230,17 +229,15 @@ $(function()
             grounds.enableBody = true;
             grounds.physicsBodyType = Phaser.Physics.ARCADE;
             var groundHeight = 60;
-            var ground = grounds.create(0, game.world.height - groundHeight, 'pixel');
+            var ground = grounds.create(-game.world.width/2, game.world.height - groundHeight, 'pixel');
             ground.tint = 0xff3300;
-            ground.scale.setTo(game.world.width, groundHeight);
+            ground.scale.setTo(2*game.world.width, groundHeight);
             ground.body.immovable = true;
             var grassCount = (ground.width/32)/4;
             for(let i = 0; i < grassCount;++i)
             {
               var grass = game.add.sprite(randomInt(0, ground.width)/ground.width, 0, 'grass1');//randomInt(0, ground.width), game.world.height-50, 'grass1');
               grass.anchor.setTo(0.5, 1);
-              // grass.position.x = randomInt(0, ground.width);
-              // grass.position.y = 0;
               grass.scale.x = 1/ground.scale.x;
               grass.scale.y = 1/ground.scale.y;
               ground.addChild(grass);
@@ -252,15 +249,19 @@ $(function()
             platforms = game.add.group();
             platforms.enableBody = true;
             platforms.physicsBodyType = Phaser.Physics.ARCADE;
-            var platformHeight = 60;
             var platformCount = 20;
             for(let i = 0; i < platformCount; ++i)
             {
-              var platform = platforms.create(0, randomInt(game.world.height - game.height, game.world.height), 'pixel');
+              var platformWidth = getPlatformWidth();
+              var platform = platforms.create(0, 0, 'pixel');
               platform.body.immovable = true;
-              var platformWidth = randomInt(20, 200);
-              platform.scale.setTo(platformWidth, platformHeight);
-              platform.x = randomInt(0, game.world.width - platformWidth);
+              resetPlatform(platform);
+              platform.position.y = randomInt((game.world.height - game.height) * i/(platformCount-1), game.world.height - (grounds.children[0].body.height*grounds.children[0].scale.y + player.body.height + platformHeight));
+              if(!isUserHero)
+              {
+                platform.inputEnabled = true;
+                platform.input.enableDrag(false, true);
+              }
             }
           }
         },
@@ -308,12 +309,28 @@ $(function()
           }
           else
           {
-            console.log('yer a wizard');
+            resetDeadPlatforms();
           }
           raiseCamera();
           animate();
           orientPlrSpriteDirection();
           sendFrameInfoToPartner();
+
+          function resetDeadPlatforms()
+          {
+            platforms.children.forEach(platform=>
+            {
+              if(isBelowKillLine(platform.body.position.y + player.body.height))
+              {
+                resetPlatform(platform);
+              }
+            });
+          }
+
+          function isBelowKillLine(distance)
+          {
+            return distance > game.world.height;
+          }
 
           function updateSocketData()
           {
@@ -359,7 +376,7 @@ $(function()
 
           function checkForDeath()
           {
-            if(player.body.position.y > game.world.height)
+            if(isBelowKillLine(player.body.position.y))
             {
               socket.send('dead');
             }
@@ -393,7 +410,10 @@ $(function()
             };
             var oldPlrPosX = player.x;
             player.x = clamp(player.x, player.body.width, game.world.width-player.body.width);
-            if(player.x !== oldPlrPosX){player.body.velocity.x = 0;}
+            if(player.x !== oldPlrPosX)
+            {
+              player.body.velocity.x = 0;
+            }
           }
 
           function sendFrameInfoToPartner()
@@ -912,6 +932,22 @@ $(function()
         }
       }
     };
+
+    function resetPlatform(platform, platformWidth)
+    {
+      if(!platformWidth)
+      {
+        platformWidth = getPlatformWidth;
+      }
+      platform.scale.setTo(platformWidth, platformHeight);
+      platform.x = randomInt(game.world.width - platformWidth, 0);
+      platform.y = -platformHeight;
+    }
+
+    function getPlatformWidth()
+    {
+      return randomInt(20, 200);
+    }
 
     function getCurrentSpeed()
     {

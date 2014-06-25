@@ -25,7 +25,7 @@ function load(app, fn)
   app.post('/games', dbg, games.create);
   app.post('/games/:gameId', dbg, games.join);
 
-  app.all('*', games.cleanup);
+  // app.all('*', games.cleanup);
 
   app.get('/games', dbg, games.index);
   app.get('/games/:gameId', dbg, games.play);

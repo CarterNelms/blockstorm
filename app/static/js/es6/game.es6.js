@@ -1,4 +1,4 @@
-/* global Phaser, io, userId, isUserHero, isUserHost, clamp, p2, randomInt */
+/* global Phaser, io, userId, isUserHero, isUserHost, clamp, p2, randomInt, favoriteColor */
 /* jshint unused: false */
 
 'use strict';
@@ -118,8 +118,8 @@ $(function()
         {
           var charType = 'cartoon';
           game.load.image('head', `/assets/character/head/${charType}.png`);
-          game.load.image('torso', '/assets/character/torso/demo.png');
-          game.load.image('foot', '/assets/character/foot/demo.png');
+          game.load.image('torso', `/assets/character/torso/${charType}.png`);
+          game.load.image('foot', `/assets/character/foot/${charType}.png`);
           game.load.image('hand-front', `/assets/character/hand/front/${charType}.png`);
           game.load.image('hand-back', `/assets/character/hand/back/${charType}.png`);
           game.load.image('pixel', '/assets/misc/pixel.png');
@@ -177,6 +177,15 @@ $(function()
             player.anchor.setTo(0.5, (head.height+torso.height/2)/player.body.height);
 
             buildSkeleton();
+            paintPlayer();
+
+            function paintPlayer()
+            {
+              getLimbs().forEach(limb=>
+              {
+                limb.tint = favoriteColor;
+              });
+            }
 
             function createTorso()
             {
@@ -211,7 +220,7 @@ $(function()
               {
                 var limbPos = limbPosition(i);
                 feet[limbPos] = game.add.sprite(0, 0, 'foot');
-                feet[limbPos].anchor.setTo(0.5, 0.5-torso.height/feet[limbPos].height);
+                feet[limbPos].anchor.setTo(0.4, 0.5-torso.height/feet[limbPos].height);
                 feet[limbPos].position.y = -torso.height/2;
               }
             }
@@ -267,7 +276,7 @@ $(function()
               platform.anchor.setTo(0.5, 0.5);
               platform.body.immovable = true;
               platform.platformData = {};
-              resetPlatformAsBonus(platform);
+              resetPlatformAsDefault(platform);
               var yOffset = (game.world.height - game.height) * (2*i/(platformCount-1) - 1);
               platform.position.y = yOffset + randomInt(0, game.height - (grounds.getAt(0).body.height*grounds.getAt(0).scale.y + player.body.height + platformHeight));
               if(!isUserHero)
@@ -1232,6 +1241,16 @@ $(function()
         feet.back,
         torso,
         head,
+        feet.front,
+        hands.front
+      ];
+    }
+
+    function getLimbs()
+    {
+      return [
+        hands.back,
+        feet.back,
         feet.front,
         hands.front
       ];

@@ -17,4 +17,5 @@ block scripts
     var userId = '#{locals.user._id.toString()}';
     var isUserHero = #{game.isUserHero(locals.user._id.toString())};
     var isUserHost = #{game.isUserHost(locals.user._id.toString())};
+    var favoriteColor = 0xff0000;
   script(src='/js/es6/compiled/game.js')

@@ -1,4 +1,4 @@
-/* global Phaser, io, userId, isUserHero, clamp, p2, randomInt */
+/* global Phaser, io, userId, isUserHero, isUserHost, clamp, p2, randomInt */
 /* jshint unused: false */
 
 'use strict';
@@ -20,8 +20,14 @@ $(function()
   socketData={},
   isHoldingJump=false,
   previousAnimation,
-  platformHeight=60;
-  // cameraStep=0;
+  platformHeight=64,
+  score=0,
+  scoreText,
+  partnerResponseTime = 0,
+  gameTime = 0,
+  difficulty = 0,
+  cameraSpeed = 0,
+  bonus = 0;
 
   initialize();
 
@@ -58,7 +64,7 @@ $(function()
     socket.on('frameData', updateFrameData);
     if(isUserHero)
     {
-      socket.on('quit', onPartnerQuit);
+      socket.on('quit', lostPartnerConnection);
     }
     else
     {
@@ -74,15 +80,17 @@ $(function()
   function updateFrameData(data)
   {
     socketData = data;
+    console.log(partnerResponseTime);
+    partnerResponseTime = 0;
   }
 
   function gameEnded(data)
   {
-    alert('The host has left the game');
+    alert('Your connection to the host has been lost');
     window.location = '/games';
   }
 
-  function onPartnerQuit(data)
+  function lostPartnerConnection(data)
   {
     console.log('PARTNER QUIT');
     console.log(data);
@@ -108,12 +116,15 @@ $(function()
       boot: {
         preload: function()
         {
-          game.load.image('head', '/assets/character/head/demo.png');
+          var charType = 'cartoon';
+          game.load.image('head', `/assets/character/head/${charType}.png`);
           game.load.image('torso', '/assets/character/torso/demo.png');
           game.load.image('foot', '/assets/character/foot/demo.png');
-          game.load.image('hand', '/assets/character/hand/demo.png');
+          game.load.image('hand-front', `/assets/character/hand/front/${charType}.png`);
+          game.load.image('hand-back', `/assets/character/hand/back/${charType}.png`);
           game.load.image('pixel', '/assets/misc/pixel.png');
           game.load.image('grass1', '/assets/environment/grass1.png');
+          game.load.spritesheet('checkpoint', '/assets/platforms/checkpoint.png', 128, 64);
 
           game.stage.disableVisibilityChange = true;
         },
@@ -133,6 +144,7 @@ $(function()
           game.physics.startSystem(Phaser.Physics.ARCADE);
           world = game.physics.arcade;
           game.world.setBounds(0, 0, 1600, 1200);
+          world.checkCollision.down = false;
 
           buildPlayer();
           buildGround();
@@ -143,6 +155,9 @@ $(function()
           game.camera.y = 2400;
 
           cursors = game.input.keyboard.createCursorKeys();
+
+          scoreText = game.add.text(16, 16, scoreAsInt(), {fontSize: '32px', fill: '#ff0'});
+          scoreText.fixedToCamera = true;
 
           function buildPlayer()
           {
@@ -158,7 +173,7 @@ $(function()
             player.body.setSize(torso.width, torso.height+head.height+feet.back.height/2);
             player.body.bounce.y = 0;
             player.body.gravity.y = 1500;
-            player.body.collideWorldBounds = false;
+            player.body.collideWorldBounds = true;
             player.anchor.setTo(0.5, (head.height+torso.height/2)/player.body.height);
 
             buildSkeleton();
@@ -184,7 +199,7 @@ $(function()
               for(let i = 0; i < 2; ++i)
               {
                 var limbPos = limbPosition(i);
-                hands[limbPos] = game.add.sprite(0, 0, 'hand');
+                hands[limbPos] = game.add.sprite(0, 0, 'hand-'+limbPos);
                 hands[limbPos].anchor.setTo(0.5, -0.5);
                 hands[limbPos].position.y = -torso.height/2;
               }
@@ -220,7 +235,7 @@ $(function()
             grounds = game.add.group();
             grounds.enableBody = true;
             grounds.physicsBodyType = Phaser.Physics.ARCADE;
-            var groundHeight = 60;
+            var groundHeight = 64;
             var ground = grounds.create(-game.world.width/2, game.world.height - groundHeight, 'pixel');
             ground.tint = 0xff3300;
             ground.scale.setTo(2*game.world.width, groundHeight);
@@ -230,9 +245,8 @@ $(function()
             {
               var grass = game.add.sprite(randomInt(0, ground.width)/ground.width, 0, 'grass1');//randomInt(0, ground.width), game.world.height-50, 'grass1');
               grass.anchor.setTo(0.5, 1);
-              grass.scale.x = 1/ground.scale.x;
-              grass.scale.y = 1/ground.scale.y;
               ground.addChild(grass);
+              fitScaleToParent(grass);
             }
           }
 
@@ -241,18 +255,25 @@ $(function()
             platforms = game.add.group();
             platforms.enableBody = true;
             platforms.physicsBodyType = Phaser.Physics.ARCADE;
-            var platformCount = 20;
+            var platformCount = 25;
             for(let i = 0; i < platformCount; ++i)
             {
-              var platformWidth = getPlatformWidth();
+              createPlatform(i);
+            }
+
+            function createPlatform(i)
+            {
               var platform = platforms.create(0, 0, 'pixel');
+              platform.anchor.setTo(0.5, 0.5);
               platform.body.immovable = true;
-              resetPlatform(platform);
-              platform.position.y = randomInt((game.world.height - game.height) * i/(platformCount-1), game.world.height - (grounds.children[0].body.height*grounds.children[0].scale.y + player.body.height + platformHeight));
+              platform.platformData = {};
+              resetPlatformAsBonus(platform);
+              var yOffset = (game.world.height - game.height) * (2*i/(platformCount-1) - 1);
+              platform.position.y = yOffset + randomInt(0, game.height - (grounds.getAt(0).body.height*grounds.getAt(0).scale.y + player.body.height + platformHeight));
               if(!isUserHero)
               {
                 platform.inputEnabled = true;
-                platform.input.enableDrag(false, true);
+                platform.input.enableDrag(false, false);
               }
             }
           }
@@ -263,21 +284,22 @@ $(function()
         // },
         update: function()
         {
+          checkConnectionStability();
+          setProperDifficulty();
           updateSocketData();
-          
-          game.physics.arcade.collide(player, grounds);
-          var platformsTouchedThisRound = platforms.children.map(()=>false);
-          game.physics.arcade.collide(player, platforms, touchPlatform, null, this);
-
-          var isMoving = isUserHero ? {
-            left: cursors.left.isDown && !cursors.right.isDown,
-            right: cursors.right.isDown && !cursors.left.isDown
-          } : undefined;
-          var plrMaxSpeed = 1000;
-          var currentAnimation = getPlrAnimation();
           if(isUserHero)
           {
+            game.physics.arcade.collide(player, grounds);
+            updateReplacedPlatforms();
+            game.physics.arcade.collide(player, platforms, touchPlatform, null, this);
+
+            var isMoving = isUserHero ? {
+              left: cursors.left.isDown && !cursors.right.isDown,
+              right: cursors.right.isDown && !cursors.left.isDown
+            } : undefined;
+            var plrMaxSpeed = 1000;
             var acceleration = 0;
+
             if(shouldPlrSlowDown())
             {
               slowPlrDown();
@@ -299,30 +321,99 @@ $(function()
             applyPlrInput();
             forcePlrOnScreen();
             checkForDeath();
+            updateScore();
           }
           else
           {
             resetDeadPlatforms();
           }
           raiseCamera();
+          var currentAnimation = getPlrAnimation();
           animate();
           orientPlrSpriteDirection();
           sendFrameInfoToPartner();
 
+          function setProperDifficulty()
+          {
+            gameTime += game.time.elapsed;
+            var lastDifficulty = difficulty;
+            difficulty = Math.ceil(gameTime/30000);
+            if(difficulty !== lastDifficulty)
+            {
+              updateDifficulty();
+            }
+
+            function updateDifficulty()
+            {
+              cameraSpeed = difficulty;
+            }
+          }
+
+          function checkConnectionStability()
+          {
+            partnerResponseTime += game.time.elapsed;
+            if(partnerResponseTime >= 6000)
+            {
+              if(isUserHost)
+              {
+                lostPartnerConnection();
+              }
+              else
+              {
+                gameEnded();
+              }
+            }
+          }
+
+          function updateScore()
+          {
+            score += 5 * (difficulty + bonus) * game.time.elapsed/1000;
+            scoreText.text = scoreAsInt();
+          }
+
+          function updateReplacedPlatforms()
+          {
+            platforms.children.forEach(platform=>
+            {
+              if(!isBelowTouchableLine(platform.body.position.y))
+              {
+                untouchPlatform(platform);
+                destroyChildSprites(platform);
+              }
+              else if(!isPlrGrounded())
+              {
+                platform.platformData.isStoodUponNow = false;
+              }
+            });
+          }
+
           function touchPlatform(plr, platform)
           {
-            console.log('IS TOUCHED');
-            var index = platforms.getIndex(platform);
-            console.log(index);
-            platformsTouchedThisRound[index] = true;
-            console.log('TOUCHED');
+            switch(platform.platformData.type)
+            {
+              case 'bonus':
+                if(platform.body.touching.up && !platform.platformData.isStoodUpon)
+                {
+                  bonus += 1;
+                }
+                break;
+              default:
+            }
+
+            platform.platformData.isTouched = true;
+            platform.platformData.isStoodUpon = platform.body.touching.up;
+            platform.platformData.isStoodUponNow = platform.platformData.isStoodUpon;
+            if(platform.platformData.isStoodUpon)
+            {
+              destroyChildSprites(platform);
+            }
           }
 
           function resetDeadPlatforms()
           {
             platforms.children.forEach(platform=>
             {
-              if(isBelowKillLine(platform.body.position.y - player.body.height))
+              if(isBelowKillLine(platform.body.position.y - (platform.scale.y/2 + player.body.height)))
               {
                 resetPlatform(platform);
               }
@@ -332,6 +423,11 @@ $(function()
           function isBelowKillLine(distance)
           {
             return distance > game.world.height;
+          }
+
+          function isBelowTouchableLine(distance)
+          {
+            return distance > -platformHeight;
           }
 
           function updateSocketData()
@@ -346,6 +442,14 @@ $(function()
                   platformsData.forEach((platformData, i)=>
                   {
                     var platform = platforms.getAt(i);
+                    console.log(platform.platformData.isStoodUponNow);
+                    if(platform.platformData.isStoodUponNow && isBelowTouchableLine(platformData.position.y))
+                    {
+                      // if(isPlrOnPlatform(platform))
+                      // {
+                      player.body.position.y += platformData.position.y - platform.body.position.y;
+                      // }
+                    }
                     platform.body.position = platformData.position;
                     platform.scale = platformData.scale;
                     platform.tint = platformData.tint;
@@ -376,24 +480,71 @@ $(function()
                 let platformsData = socketData.platformsData;
                 if(platformsData)
                 {
-                  platformsData.platformsTouchedThisRound.forEach((isTouched, i)=>
+                  platformsData.forEach((platformData, i)=>
                   {
-                    var platform = platforms.getAt(i);
-                    if(isTouched)
-                    {
-                      platform.platformData.isTouched = true;
-                    }
+                    var platform = platforms.children[i];
+                    platform.platformData.isTouched = platformData.isTouched;
 
+                    var tint;
                     if(platform.platformData.isTouched)
                     {
-                      platform.tint = 0xffff00;
+                      tint = 0xffff00;
                     }
+                    else
+                    {
+                      switch(platform.platformData.type)
+                      {
+                        case 'checkpoint':
+                          tint = 0x00ff00;
+                          break;
+                        case 'bonus':
+                          tint = 0xff0000;
+                          break;
+                        default:
+                          tint = 0x1199ff;
+                      }
+                    }
+                    platform.tint = tint;
+                    platform.inputEnabled = !platform.platformData.isTouched;
+
+                    if(platformData.isStoodUpon && !platform.platformData.isStoodUpon && isBelowTouchableLine(platform.y))
+                    {
+                      platform.platformData.isStoodUpon = true;
+                      switch(platform.platformData.type)
+                      {
+                        case 'checkpoint':
+                          var newWidth = 2.5 * game.world.width;
+                          platform.scale.x = newWidth;
+                          destroyChildSprites(platform);
+                          break;
+                        case 'bonus':
+                          resetPlatform(platform);
+                          break;
+                        default:
+                      }
+                    }
+                    platform.platformData.isStoodUponNow = platformData.isStoodUponNow;
                   });
                 }
               }
             }
-
           }
+
+          // function isPlrOnPlatform(platform)
+          // {
+          //   var delta = {
+          //     x: (platform.body.position.x - platform.scale.x/2) - player.body.position.x,
+          //     y: (platform.body.position.y - platform.scale.y/2) - player.body.position.y
+          //   };
+
+          //   var deadzoneSize = 200;
+          //   if(delta.x === clamp(delta.x, -platform.scale.x, 0) && delta.y === clamp(delta.y, player.body.height - deadzoneSize/2, player.body.height + deadzoneSize/2))
+          //   {
+          //     console.log(delta);
+          //     return true;
+          //   }
+          //   return false;
+          // }
 
           function checkForDeath()
           {
@@ -405,7 +556,7 @@ $(function()
 
           function raiseCamera()
           {
-            var cameraStep = 0.02 * game.time.elapsed;
+            var cameraStep = cameraSpeed * 0.01 * game.time.elapsed;
             if(isUserHero)
             {
               player.y += cameraStep;
@@ -425,16 +576,36 @@ $(function()
 
           function forcePlrOnScreen()
           {
-            var horizontalWorldBounds = {
-              left: player.body.width,
-              right: game.world.width-player.body.width
-            };
-            var oldPlrPosX = player.x;
-            player.x = clamp(player.x, player.body.width, game.world.width-player.body.width);
-            if(player.x !== oldPlrPosX)
+            player.body.position.y = clamp(player.body.position.y, 0, getCheckpointPosY() - (9*platformHeight/20 + player.body.height));// platform.body.position.y - (platform.scale.y/2 + player.body.height));
+            // var horizontalWorldBounds = {
+            //   left: player.body.width,
+            //   right: game.world.width-player.body.width
+            // };
+            // var oldPlrPosX = player.x;
+            // player.x = clamp(player.x, player.body.width, game.world.width-player.body.width);
+            // if(player.x !== oldPlrPosX)
+            // {
+            //   player.body.velocity.x = 0;
+            // }
+          }
+
+          function getCheckpointPosY()
+          {
+            var distance = game.world.height + game.height;
+            platforms.children.forEach(platform=>
             {
-              player.body.velocity.x = 0;
-            }
+              if(platform.platformData.type === 'checkpoint')
+              {
+                if(platform.platformData.isStoodUpon)
+                {
+                  if(platform.y < distance)
+                  {
+                    distance = platform.y;
+                  }
+                }
+              }
+            });
+            return distance;
           }
 
           function sendFrameInfoToPartner()
@@ -453,9 +624,10 @@ $(function()
                 position: grounds.children[0].body.position
               };
 
-              let platformsData = {
-                platformsTouchedThisRound: platformsTouchedThisRound
-              };
+              let platformsData = platforms.children.map(platform=>
+              {
+                return platform.platformData;
+              });
 
               socket.emit('frameData', {
                 playerData: playerData,
@@ -514,6 +686,7 @@ $(function()
 
           function animate()
           {
+            if(!isUserHero){console.log(currentAnimation);}
             if(currentAnimation !== previousAnimation)
             {
               previousAnimation = currentAnimation;
@@ -944,7 +1117,7 @@ $(function()
 
           function isPlrGrounded()
           {
-            return player.body.touching.down;
+            return player.body.touching.down && player.body.wasTouching.down;
           }
         }
       },
@@ -960,21 +1133,91 @@ $(function()
       }
     };
 
-    function resetPlatform(platform)
+    function scoreAsInt()
     {
-      var platformWidth = getPlatformWidth();
-      platform.scale.setTo(platformWidth, platformHeight);
-      platform.x = randomInt(0, game.world.width - platformWidth);
-      platform.y = -platformHeight;
-      platform.tint = 0x1199ff;
-      platform.platformData = {
-        isTouched: false
-      };
+      return Math.floor(score);
     }
 
-    function getPlatformWidth()
+    function untouchPlatform(platform)
     {
-      return randomInt(20, 200);
+      platform.platformData.isTouched = false;
+      platform.platformData.isStoodUpon = false;
+      platform.platformData.isStoodUponNow = false;
+    }
+
+    function fitScaleToParent(child)
+    {
+      var parent = child.parent;
+      child.scale.x = 1/parent.scale.x;
+      child.scale.y = 1/parent.scale.y;
+    }
+
+    function destroyChildSprites(parent)
+    {
+      parent.children.forEach(child=>
+      {
+        child.destroy();
+      });
+    }
+
+    function resetPlatform(platform)
+    {
+      destroyChildSprites(platform);
+      platform.y = -2*platformHeight;
+      untouchPlatform(platform);
+      var typeDeciderRange = 100;
+      var typeDecider = randomInt(1, typeDeciderRange);
+      var fn = resetPlatformAsDefault;
+      if(typeDecider <= 5)
+      {
+        fn = resetPlatformAsCheckpoint;
+      }
+      else if(typeDecider <= 10)
+      {
+        fn = resetPlatformAsBonus;
+      }
+      fn(platform);
+    }
+
+    function resetPlatformAsBonus(platform)
+    {
+      var platformWidth = 24;
+      setPlatformScaleByWidth(platform, platformWidth);
+      platform.x = getRandomPlatformPosX(platformWidth);
+      platform.platformData.type = 'bonus';
+    }
+
+    function resetPlatformAsCheckpoint(platform)
+    {
+      var platformWidth = 128;
+      setPlatformScaleByWidth(platform, platformWidth);
+      platform.x = getRandomPlatformPosX(platformWidth);
+      platform.platformData.type = 'checkpoint';
+
+      var checkpointArrows = game.add.sprite(0, 0, 'checkpoint');
+      checkpointArrows.animations.add('outward', [0, 1, 2], 3.5, true);
+      checkpointArrows.anchor.setTo(0.5, 0.5);
+      platform.addChild(checkpointArrows);
+      fitScaleToParent(checkpointArrows);
+      checkpointArrows.animations.play('outward');
+    }
+
+    function resetPlatformAsDefault(platform)
+    {
+      var platformWidth = randomInt(48, 240);
+      setPlatformScaleByWidth(platform, platformWidth);
+      platform.x = getRandomPlatformPosX(platformWidth);
+      platform.platformData.type = null;
+    }
+
+    function setPlatformScaleByWidth(platform, platformWidth)
+    {
+      platform.scale.setTo(platformWidth, platformHeight);
+    }
+
+    function getRandomPlatformPosX(platformWidth)
+    {
+      return randomInt(platformWidth/2, game.world.width - platformWidth/2);
     }
 
     function getCurrentSpeed()

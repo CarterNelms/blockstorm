@@ -695,7 +695,6 @@ $(function()
 
           function animate()
           {
-            if(!isUserHero){console.log(currentAnimation);}
             if(currentAnimation !== previousAnimation)
             {
               previousAnimation = currentAnimation;

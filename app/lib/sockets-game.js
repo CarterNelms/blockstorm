@@ -102,7 +102,7 @@ function addUserToSocket(socket)
       {
         if(game)
         {
-          broadcastGame(game, 'joined', {isReadyToPlay: game.isReadyToPlay});
+          broadcastGame(game, 'joined', {isReadyToPlay: game.isReadyToPlay, game: game});
         }
       });
     }

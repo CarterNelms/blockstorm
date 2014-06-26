@@ -11,9 +11,23 @@ block content
         option(value=1) Hero
         option(value=0) Wizard
       input(name='userId' type='hidden' value=locals.user._id.toString())
-      button Start
+      button.white Start
 
-  ul
-    each game in games
-      li: form(method='POST' action='/games/#{game._id}')
-        button Join
+  #games
+    table
+      thead
+        tr
+          th(colspan=2) Username
+          th Open Role
+          th Distance (miles)
+      tbody
+        each game in games
+          -var usr = users.find(function(u){return u._id.toString() === game.hostId.toString();});
+          tr
+            td= usr.username
+            td: form(method='POST' action='/games/#{game._id}')
+              button Join
+            td= game.openRole
+            td ---
+            //- if locals.user
+            //-   td= locals.user.distance(urs)

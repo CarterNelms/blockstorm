@@ -5,8 +5,11 @@ block content
 
   if locals.user
     ul
+      //- li You: #{locals.user.username}
       li Your ID: #{locals.user._id}
+      //- li#host Host:
       li Host ID: #{game.hostId}
+      //- li Partner ID: #{game.partnerId(locals.user._id)}
       li Partner ID: #{game.partnerId(locals.user._id)}
       li Your Role: #{game.userRole(locals.user._id)}
     #game

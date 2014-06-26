@@ -4,11 +4,32 @@
 
 var traceur = require('traceur');
 var Game = traceur.require(__dirname + '/../models/game.js');
+var User = traceur.require(__dirname + '/../models/user.js');
 
 exports.index = (req, res)=>{
   Game.findAllOpen(games=>
   {
-    res.render('games/index', {games: games});
+    var users = [];
+    var userCount = games.length;
+    if(games.length)
+    {
+      games.forEach(game=>
+      {
+        User.findById(game.hostId, user=>
+        {
+          console.log(userCount);
+          users.push(user);
+          if(!(--userCount))
+          {
+            res.render('games/index', {games: games, users: users});
+          }
+        });
+      });
+    }
+    else
+    {
+      res.render('games/index', {games: games, users: users});
+    }
   });
 };
 

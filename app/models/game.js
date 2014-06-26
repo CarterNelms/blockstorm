@@ -155,6 +155,11 @@ class Game
     return this.isHostHero ? this.players.heroId : this.players.wizardId;
   }
 
+  get openRole()
+  {
+    return this.isHeroOpen ? 'Hero' : this.isWizardOpen ? 'Wizard' : 'Closed';
+  }
+
   static findAllOpen(fn)
   {
     Game.findAllOpenHero(heroGames=>

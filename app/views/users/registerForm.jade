@@ -1,6 +1,8 @@
 form#register-form.form(method='POST' action='/register')
   table
     tr
+      td(colspan=2) Username - 5 to 20 characters - dashes and underscores are okay
+    tr
       td
         label Username
       td
@@ -10,8 +12,8 @@ form#register-form.form(method='POST' action='/register')
         label Email
       td
         input(type='email' name='email')
-    //- tr
-    //-   td 
+    tr
+      td(colspan=2) Password - 7 to 20 characters - minimum of 2 types of characters (uppercase letters, lowercase letters, numbers, symbols)
     tr
       td
         label Password

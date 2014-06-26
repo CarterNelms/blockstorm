@@ -18,7 +18,7 @@ class User
     this.email = obj.email;
     this.username = obj.username;
     this.password = bcrypt.hashSync(obj.password[0], 8);
-    // this.color = obj.color;
+    this.color = obj.color;
     this.isValid = false;
     this.highScore = 0;
     this.location = {

@@ -24,7 +24,6 @@ exports.lookup = (req, res, next)=>
       {
         next();
       }
-      next();
     });
   }
   else

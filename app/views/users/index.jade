@@ -10,8 +10,12 @@ block content
           th Username
           th High Score
       tbody
-        each user in users
+        if locals.user
           tr
-            //- td: a(href='/users/#{user._id}' style='color: #{user.color} !important;')= user.username 
-            td(style='color: #{user.color} !important;')= user.username 
-            td= user.highScore
+            td(style='color: #{locals.user.color} !important;')= locals.user.username 
+            td= locals.user.highScore
+        each u in users
+          tr
+            //- td: a(href='/users/#{u._id}' style='color: #{u.color} !important;')= u.username 
+            td(style='color: #{u.color} !important;')= u.username 
+            td= u.highScore

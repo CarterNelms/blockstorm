@@ -187,7 +187,8 @@ $(function()
 
             player.body.setSize(torso.width, torso.height+head.height+feet.back.height/2);
             player.body.bounce.y = 0;
-            if(isUserHero){player.body.gravity.y = 1500;}
+            // if(isUserHero){player.body.gravity.y = 1500;}
+            player.body.gravity.y = 1500;
             player.body.collideWorldBounds = true;
             player.anchor.setTo(0.5, (head.height+torso.height/2)/player.body.height);
 
@@ -483,14 +484,14 @@ $(function()
                 {
                   player.body.acceleration = playerData.acceleration;
                   player.body.position = playerData.position;
-                  // for(let d in playerData.velocity)
-                  // {
-                  //   var velocity = playerData.velocity[d];
-                  //   if(velocity)
-                  //   {
-                  //     player.body.velocity[d] = velocity;
-                  //   }
-                  // }
+                  for(let d in playerData.velocity)
+                  {
+                    var velocity = playerData.velocity[d];
+                    if(velocity)
+                    {
+                      player.body.velocity[d] = velocity;
+                    }
+                  }
                 }
                 var groundData = socketData.groundData;
                 if(groundData)

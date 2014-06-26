@@ -18,7 +18,7 @@ class User
     this.email = obj.email;
     this.username = obj.username;
     this.password = bcrypt.hashSync(obj.password[0], 8);
-    // this.color = obj.color;
+    this.color = obj.color;
     this.isValid = false;
     this.highScore = 0;
     this.location = {
@@ -272,7 +272,8 @@ function sendVerificationEmail(user, fn)
   form.append('from', 'capstone@carternelms.com');
   form.append('to', user.email);
   form.append('subject', 'Email Verification');
-  var link = `http://localhost:3000/users/${user._id}/verify`;
+  // var link = `http://localhost:3000/users/${user._id}/verify`;
+  var link = `http://blockstorm.carternelms.com/users/${user._id}/verify`;
   form.append('html', `<a href="${link}">${link}</a>`);
 }
 

@@ -3,13 +3,4 @@ extends ../shared/template
 block content
   h1 Register
 
-  form(method='POST' action='/register')
-    label Username
-      input(type='text' name='username' autofocus=true)
-    label Email
-      input(type='email' name='email')
-    label Password
-      input(type='password' name='password')
-    label Confirm Password
-      input(type='password' name='password')
-    button Register
+  include registerForm

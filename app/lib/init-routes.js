@@ -45,6 +45,7 @@ function load(app, fn)
   app.get('/users', dbg, users.index);
   app.get('/users/:userId/verify', dbg, users.verify);
   app.get('/users/:userId', dbg, users.profile);
+  app.post('/users/:userId/score', dbg, users.submitScore);
 
   console.log('Routes Loaded');
   fn();

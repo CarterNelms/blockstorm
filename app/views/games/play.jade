@@ -17,5 +17,30 @@ block scripts
     var userId = '#{locals.user._id.toString()}';
     var isUserHero = #{game.isUserHero(locals.user._id.toString())};
     var isUserHost = #{game.isUserHost(locals.user._id.toString())};
-    var favoriteColor = 0xff0000;
+    var favoriteColor = (function()
+    {
+      switch('#{user.color}')
+      {
+        case 'red':
+          return 0xff0000;
+          break;
+        case 'orange':
+          return 0xff3300;
+          break;
+        case 'yellow':
+          return 0xffff00;
+          break;
+        case 'green':
+          return 0x00ff00;
+          break;
+        case 'blue':
+          return 0x0000ff;
+          break;
+        case 'purple':
+          return 0x4400ff;
+          break;
+        default:
+          return 0xffffff;
+      }
+    })();
   script(src='/js/es6/compiled/game.js')

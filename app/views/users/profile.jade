@@ -1,13 +1,15 @@
 extends ../shared/template
 
 block content
-  table
-    thead
-      tr
-        th= owner.username
-        if distance
-          th - #{distance.toFixed(2)}
-    tbody
-      tr
-        td
-        td
+  #profile
+    table
+      thead
+        tr
+          th= owner.username
+          if (distance || distance === 0) && locals.user
+            if locals.user._id.toString() !== owner._id.toString()
+              th - #{distance.toFixed(2)} miles from you
+      tbody
+        tr
+          td
+          td

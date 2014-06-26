@@ -3,6 +3,15 @@ extends ../shared/template
 block content
   h1 Users
 
-  ul
-    each user in users
-      li: a(href='/users/#{user._id}')= user.username
+  #users
+    table
+      thead
+        tr
+          th Username
+          th High Score
+      tbody
+        each user in users
+          tr
+            //- td: a(href='/users/#{user._id}' style='color: #{user.color} !important;')= user.username 
+            td(style='color: #{user.color} !important;')= user.username 
+            td= user.highScore

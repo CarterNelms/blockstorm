@@ -1,4 +1,4 @@
-/* global Phaser, io, userId, isUserHero, isUserHost, clamp, p2, randomInt, favoriteColor */
+/* global Phaser, io, userId, isUserHero, isUserHost, clamp, p2, randomInt, favoriteColor, ajax */
 /* jshint unused: false */
 
 'use strict';
@@ -61,15 +61,21 @@ $(function()
     // });
     socket.on('joined', joined);
     socket.on('dead', dead);
+    socket.on('playagain', playAgain);
     socket.on('frameData', updateFrameData);
     if(isUserHero)
     {
-      socket.on('quit', lostPartnerConnection);
+      socket.on('quit', partnerQuit);
     }
     else
     {
       socket.on('ended', gameEnded);
     }
+  }
+
+  function playAgain()
+  {
+    game.state.start('level');
   }
 
   function dead()
@@ -80,32 +86,37 @@ $(function()
   function updateFrameData(data)
   {
     socketData = data;
-    console.log(partnerResponseTime);
     partnerResponseTime = 0;
+  }
+
+  function leaveGame()
+  {
+    window.location = '/games';
   }
 
   function gameEnded(data)
   {
-    alert('Your connection to the host has been lost');
-    window.location = '/games';
+    alert('The host has ended the current game');
+    dead();
   }
 
-  function lostPartnerConnection(data)
+  function partnerQuit(data)
   {
-    console.log('PARTNER QUIT');
-    console.log(data);
+    alert('Your partner has quit this game');
+    dead();
   }
 
   function disconnected(data)
   {
-    console.log('DISCONNECTED');
-    console.log(data);
+    alert('You have lost your connection to your partner');
+    dead();
   }
 
   function joined(data)
   {
     if(data.isReadyToPlay)
     {
+      socket.off('joined');
       game.state.start('level');
     }
   }
@@ -135,12 +146,16 @@ $(function()
             game.state.add(state, states[state]);
           }
 
+          scoreText = game.add.text(16, 16, 'Waiting for partner...', {fontSize: '32px', fill: '#ff0'});
+          scoreText.fixedToCamera = true;
+
           initializeSocketIo();
         }
       },
       level: {
         create: function()
         {
+          score = 0;
           game.physics.startSystem(Phaser.Physics.ARCADE);
           world = game.physics.arcade;
           game.world.setBounds(0, 0, 1600, 1200);
@@ -330,12 +345,12 @@ $(function()
             applyPlrInput();
             forcePlrOnScreen();
             checkForDeath();
-            updateScore();
           }
           else
           {
             resetDeadPlatforms();
           }
+          updateScore();
           raiseCamera();
           var currentAnimation = getPlrAnimation();
           animate();
@@ -363,20 +378,16 @@ $(function()
             partnerResponseTime += game.time.elapsed;
             if(partnerResponseTime >= 6000)
             {
-              if(isUserHost)
-              {
-                lostPartnerConnection();
-              }
-              else
-              {
-                gameEnded();
-              }
+              disconnected();
             }
           }
 
           function updateScore()
           {
-            score += 5 * (difficulty + bonus) * game.time.elapsed/1000;
+            if(isUserHero)
+            {
+              score += 5 * (difficulty + bonus) * game.time.elapsed/1000;
+            }
             scoreText.text = scoreAsInt();
           }
 
@@ -451,7 +462,6 @@ $(function()
                   platformsData.forEach((platformData, i)=>
                   {
                     var platform = platforms.getAt(i);
-                    console.log(platform.platformData.isStoodUponNow);
                     if(platform.platformData.isStoodUponNow && isBelowTouchableLine(platformData.position.y))
                     {
                       // if(isPlrOnPlatform(platform))
@@ -467,6 +477,7 @@ $(function()
               }
               else
               {
+                score = socketData.score;
                 var playerData = socketData.playerData;
                 if(playerData)
                 {
@@ -549,7 +560,6 @@ $(function()
           //   var deadzoneSize = 200;
           //   if(delta.x === clamp(delta.x, -platform.scale.x, 0) && delta.y === clamp(delta.y, player.body.height - deadzoneSize/2, player.body.height + deadzoneSize/2))
           //   {
-          //     console.log(delta);
           //     return true;
           //   }
           //   return false;
@@ -641,7 +651,8 @@ $(function()
               socket.emit('frameData', {
                 playerData: playerData,
                 groundData: groundData,
-                platformsData: platformsData
+                platformsData: platformsData,
+                score: score
               });
             }
             else
@@ -1106,7 +1117,7 @@ $(function()
 
           function slowPlrDown()
           {
-            player.body.velocity.x *= 0.8;
+            player.body.velocity.x *= clamp(0.8 * game.time.elapsed/30, 0, 1);
           }
 
           function getPlrJumpVelocity()
@@ -1130,16 +1141,43 @@ $(function()
         }
       },
       dead: {
+        preload: function()
+        {
+          if(isUserHost)
+          {
+            game.load.image('playagain','/assets/misc/playagain.png');
+          }
+        },
         create: function()
         {
-          console.log('Entering dead state');
-        },
-        update: function()
-        {
-          console.log('Dead state');
+          scoreText = game.add.text(16, 16, `Score: ${scoreAsInt()} \n Submitting to server...`, {fontSize: '32px', fill: '#ff0'});
+          scoreText.fixedToCamera = true;
+          submitScore();
+          if(isUserHost)
+          {
+            game.add.button(game.width/2 - 100, game.height/2-20, 'playagain', sendPlayAgain, this);
+          }
         }
+        // update: function()
+        // {
+        //   console.log('Dead state');
+        // }
       }
     };
+
+    function sendPlayAgain()
+    {
+      socket.send('playagain');
+    }
+
+    function submitScore()
+    {
+      score = Math.floor(score);
+      ajax(`/users/${userId}/score`, 'POST', {score: score}, data=>
+      {
+        scoreText.text = `Score: ${scoreAsInt()} \nHigh Score: ${data.score}`;
+      }, 'json');
+    }
 
     function scoreAsInt()
     {
@@ -1176,11 +1214,11 @@ $(function()
       var typeDeciderRange = 100;
       var typeDecider = randomInt(1, typeDeciderRange);
       var fn = resetPlatformAsDefault;
-      if(typeDecider <= 5)
+      if(typeDecider <= 10)
       {
         fn = resetPlatformAsCheckpoint;
       }
-      else if(typeDecider <= 10)
+      else if(typeDecider <= 20)
       {
         fn = resetPlatformAsBonus;
       }

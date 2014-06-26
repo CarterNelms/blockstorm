@@ -73,7 +73,6 @@ class Game
 
   destroy(fn)
   {
-    console.log('DESTROYING');
     Base.destroy(this._id, gameCollection, fn);
   }
 

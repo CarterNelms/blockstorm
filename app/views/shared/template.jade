@@ -7,25 +7,31 @@ html
     link(href='/less/app.css', rel='stylesheet')
   body
     nav
-      .left
-        ul
-          li: a(href='/') Home
-          li: a(href='/about') About
-          li: a(href='/users') Users
-          li: a(href='/games') Games
-      .right
-        ul
-          if locals.user
-            li: form(method='POST' action='/logout')
-              a#logout(href='#') Logout
-            li: a(href='#messageModal') Messages
-          else
-            li: a(href='#loginModal') Login
-            li: a(href='/register') Register
+      #header
+        h1#nav-title Block
+          span Storm
+      #menu-items
+        .left
+          ul
+            li: a(href='/') Home
+            li: a(href='/about') About
+            li: a(href='/about#rules') Rules
+            li: a(href='/about#controls') Controls
+            li: a(href='/users') Users
+            li: a(href='/games') Games
+        .right
+          ul
+            if locals.user
+              li: form(method='POST' action='/logout')
+                a#logout(href='#') Logout
+              //- li: a(href='#messageModal') Messages
+            else
+              li: a(href='#loginModal') Login
+              li: a(href='#registerModal') Register
 
     #messageModal.modal
       div
-        h2 Message Modal
+        h2 Message
         if locals.lastChats
           each message, index in locals.lastChats.messages
             if index
@@ -41,15 +47,27 @@ html
         else
           p You have no messages
 
-    #loginModal.modal
+    #loginModal.modal.white
       div
-        a(href='#close' title='Close').close X
-        h2 Login Modal
+        h2 Login
         include ../users/loginForm
-        | Not yet a member? 
-        a(href='/register') Create an account
+        p Not yet a member? 
+          a(href='#registerModal') Create an account
 
-    block content
+    #registerModal.modal.black
+      div
+        h2 Register
+        include ../users/registerForm
+        p Already a member? 
+          a(href='#loginModal') Login here
+
+    #page-wrap
+      block content
+
+    #footer
+      span Block Storm is a 2-player socket-driven HTML/Javascript game created by 
+        span.author Carter Nelms
+        |  for his capstone project at Nashville Software School - 2014
 
     script(src='/js/vendor/jquery-2.1.1.js')
     script(src='/js/vendor/lodash-2.4.1.js')
@@ -58,7 +76,7 @@ html
     script(src='/socket.io/socket.io.js')
     script(src='/js/es5/main.js')
     script(src='/js/es6/compiled/main.js')
-    script(src='/js/es6/compiled/sockets.js')
+    //- script(src='/js/es6/compiled/sockets.js')
     if !locals.user
       script(src='/js/es6/compiled/login.js')
 

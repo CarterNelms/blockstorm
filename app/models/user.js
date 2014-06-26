@@ -18,6 +18,7 @@ class User
     this.email = obj.email;
     this.username = obj.username;
     this.password = bcrypt.hashSync(obj.password[0], 8);
+    // this.color = obj.color;
     this.isValid = false;
     this.highScore = 0;
     this.location = {
@@ -120,17 +121,25 @@ class User
 
       function distance(loc1, loc2)
       {
-        var earthRadius = 6371;
-        var dLat = toRad((loc2.latitude-loc1.latitude));  // Javascript functions in radians
-        var dLon = toRad((loc2.longitude-loc1.longitude)); 
-        // Took this equation from Yahoo Answers for find the distance between 2 lat/lng coords
-        var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(toRad(loc1.latitude)) * Math.cos(toRad(loc2.latitude)) * 
-                Math.sin(dLon/2) * Math.sin(dLon/2); 
-        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-        var d = earthRadius * c; // Distance in km
-        var miles = d * 1000 * 100 / 2.54 / 12 / 5280;
-        return miles;
+        if(loc1.latitude && loc1.longitude && loc2.latitude && loc2.longitude)
+        {
+          var R = 6371; // km
+          var lat1 = toRad(loc1.latitude);
+          var lat2 = toRad(loc2.latitude);
+          var dLat = toRad((loc2.latitude-loc1.latitude));
+          var dLng = toRad((loc2.longitude-loc1.longitude));
+
+          var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1) * Math.cos(lat2) *
+                  Math.sin(dLng/2) * Math.sin(dLng/2);
+          var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+          var d = R * c;
+
+          var miles = d * 1000 * 100 / 2.54 / 12 / 5280;
+          return miles;
+        }
+        return null;
 
         function toRad(num)
         {
@@ -138,6 +147,20 @@ class User
         }
       }
     });
+  }
+
+  submitScore(score, fn)
+  {
+    score *= 1;
+    if(score > this.highScore)
+    {
+      this.highScore = score;
+      this.save(user=>fn(user));
+    }
+    else
+    {
+      fn(this);
+    }
   }
 
   static login(obj, fn=()=>{})

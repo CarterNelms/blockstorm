@@ -1,0 +1,36 @@
+form#register-form.form(method='POST' action='/register')
+  table
+    tr
+      td
+        label Username
+      td
+        input(type='text' name='username' autofocus=true)
+    tr
+      td
+        label Email
+      td
+        input(type='email' name='email')
+    //- tr
+    //-   td 
+    tr
+      td
+        label Password
+      td
+        input(type='password' name='password')
+    tr
+      td
+        label Confirm Password
+      td
+        input(type='password' name='password')
+    tr
+      td
+        label Color
+      td
+        select(name='color')
+          option(value='red') Red
+          option(value='orange') Orange
+          option(value='yellow') Yellow
+          option(value='green') Green
+          option(value='blue') Blue
+          option(value='purple') Purple
+  button.blue Register

@@ -48,10 +48,19 @@ function handleMessage(msg)
     case 'dead':
       fn = dead;
       break;
+    case 'playagain':
+      fn = playAgain;
+      break;
     default:
   }
   var socket = this;
   fn(socket);
+}
+
+function playAgain(socket)
+{
+  var userId = getUserIdFromCookie(socket);
+  broadcastGame(userId, 'playagain');
 }
 
 function dead(socket)

@@ -1,10 +1,18 @@
-form(method='POST' action='/login')
-  label Email
-    input(type='email' name='email')
-  label Password
-    input(type='password' name='password')
+form#login-form.form(method='POST' action='/login')
+  table
+    tr
+      td
+        label Email
+      td
+        input(type='email' name='email')
+    tr
+      td
+        label Password
+      td
+        input(type='password' name='password')
   label Use current location
-    input(type='checkbox' name='useLocation')
+    input(type='checkbox' name='useLocation' checked)
   input(type='hidden' name='latitude')
   input(type='hidden' name='longitude')
-  button#login Login
+  br
+  button#login.black Login

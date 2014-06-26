@@ -1,4 +1,35 @@
 extends ../shared/template
 
 block content
-  h1 About
+  h1 About Block Storm
+
+  #about-content.sectioned
+    #about
+      h2 About
+      p Block Storm was created by me, Carter Nelms, as my capstone project for Nashville Software School (Cohort 5). The project was completed in 13 days and includes both the game itself and its web site. Sign up and play my game for a demonstration of many of my skills in web development and software design.
+      p All user accounts are stored and managed using MongoDB. Once you create your account, you should receive a verification email, send via Mailgun. As you would expect, click the link inside to activate your account.
+      p Now that you're active, you are allowed to enter into a game with another user. Login to get started. You can choose to allow access to your current location as well. If you do, you will be able to search for other users by their distance from you.
+      p Check out the Rules section of this site to learn how to play. The rules are fairly simple. If you're the impatient type, you could just jump right in - you'll pick it up after a game or two.
+      p Block Storm was written using Phaser, an HTML5 game framework with Javascript support. As part of my project, I wanted to tackle something that we were never taught in class. Phaser was entirely new to me, while also letting me incorporate many of the skills taught in class. The most fun aspect of this, and also the most challenging, was discovering how to incorporate online multiplayer into a Phaser game. Online multiplayer is not restricted in Phaser per se, but Phaser was designed for local browser-run games.
+      p For my online multiplayer game, Phaser sends data from each user to the server via socket.io. That data is then sent to the other user. Each player's machine is the "master" of certain data, while the other immitates what it receives. For example, the Hero character runs and jumps around on the Hero player's machine, while his position, velocity, sprite direction, and animation are sent to the Wizard, whose browser will update to reflect what the Hero is actually doing.
+      p The real challenge of online multiplayer in Block Storm was not just making it work, but making it work in real time. A turn-based would have much simpler game logic that an action-oriented one like mine. Syncing both players' machines as they play proved to be extremely time consuming compared to the rest of my project, and altogether, I spent more time working on the aspects of my project that I was not taught in class than on those that I was taught.
+
+    #rules
+      h2 Rules
+      p This game is easiest when you and your partner can easlily communicate with each other, but if you like the challenge of playing with a silent stranger, or if all of your friends are just too cool for Block Storm, you can still join a game with any other user. Visit the Games section to see all open games, or to start one yourself.
+      p If you choose to start one yourself, you'll be given the choice of playing as the Hero or the Wizard. The Hero runs around franticlly, leaping to climb the falling blocks and to keep his head above the bottom of the screen. The blocks fall at random however, and eventually he will have no path upward. The Wizard can help the Hero by moving the blocks around the screen. Both players must be careful though - only so many blocks will exist at once, and once the Hero touches one, the Wizard can no longer move it. Choose your next step wisely.
+      p As time progresses, you'll notice the blocks begin to drop faster and faster. Beware! If you don't, you will find yourself in trouble faster than you would believe. But don't worry. The faster the blocks fall, the faster your score goes up. Stick around long enough, and your score will really take off.
+      p Most blocks having nothing special about them, but keep an eye out for unique pieces.
+        ul
+          li Checkpoints will expand outward, preventing the Hero save from death until it falls off the screen itself. Look for the arrows pointing outward.
+          li Bonuses will permanently increase the rate at which your score increases. You'll notice them - they're bright red. But be careful. Not only are they tiny and hard to land on, but they'll vanish as soon as you do.
+
+    #controls
+      h2 Controls
+      .hero-controls
+        h3 Hero
+        p The Hero moves around with the left and right arrow keys. Press up to jump, and hold it to jump higher.
+        p Keep in mind that the Hero can change his direction much more quickly on the ground than he can in the air. He can also jump the very instant that he lands by pressing and holding the jump button while still in the air.
+      .wizard-controls
+        h3 Wizard
+        p The Wizard does not appear on the screen. Instead, he has the ability to move platforms with his mouse. Simply click and drag to move a block anywhere on the screen. Both players should keep in mind though that a block cannot be moved as soon as the Hero touches it.

@@ -2,6 +2,7 @@
 
 var traceur = require('traceur');
 var User = traceur.require(__dirname + '/../models/user.js');
+var sort = traceur.require(__dirname + '/../lib/sort.js');
 
 exports.lookup = (req, res, next)=>
 {
@@ -15,7 +16,6 @@ exports.lookup = (req, res, next)=>
       {
         user.getLastMsgPerPartner(lastMessages=>
         {
-          console.log('DONE');
           res.locals.lastMessages = lastMessages;
           next();
         });
@@ -37,7 +37,7 @@ exports.index = (req, res)=>
 {
   User.findAllVerified(users=>
   {
-    res.render('users/index', {users: users});
+    res.render('users/index', {users: sort.users.byHighScore(users)});
   });
 };
 
@@ -56,6 +56,26 @@ exports.profile = (req, res)=>
     else
     {
       res.render('users/profile', {owner: owner});
+    }
+  });
+};
+
+exports.submitScore = (req, res)=>
+{
+  var userId = req.params.userId;
+  User.findById(userId, user=>
+  {
+    var score = req.body.score;
+    if(user)
+    {
+      user.submitScore(score, user=>
+      {
+        res.send({score: user.highScore});
+      });
+    }
+    else
+    {
+      res.send({score: score});
     }
   });
 };

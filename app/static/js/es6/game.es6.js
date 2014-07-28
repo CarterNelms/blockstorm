@@ -7,6 +7,7 @@ $(function()
 {
   var game,
   socket,
+  background,
   player,
   torso,
   head,
@@ -135,6 +136,7 @@ $(function()
           game.load.image('hand-back', `/assets/character/hand/back/${charType}.png`);
           game.load.image('pixel', '/assets/misc/pixel.png');
           game.load.image('grass1', '/assets/environment/grass1.png');
+          game.load.image('background', '/assets/environment/castle_bg.png');
           game.load.spritesheet('checkpoint', '/assets/platforms/checkpoint.png', 128, 64);
 
           game.stage.disableVisibilityChange = true;
@@ -156,6 +158,8 @@ $(function()
         create: function()
         {
           score = 0;
+          background = game.load.tilesprite(0, 0, 600, 400, 'background');
+
           game.physics.startSystem(Phaser.Physics.ARCADE);
           world = game.physics.arcade;
           game.world.setBounds(0, 0, 1600, 1200);

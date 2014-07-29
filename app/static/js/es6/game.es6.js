@@ -7,8 +7,8 @@ $(function()
 {
   var game,
   socket,
-  updatesPerSecond = 5,
-  frames = 0,
+  // updatesPerSecond = 10,
+  // frames = 0,
   player,
   torso,
   head,
@@ -189,8 +189,8 @@ $(function()
 
             player.body.setSize(torso.width, torso.height+head.height+feet.back.height/2);
             player.body.bounce.y = 0;
-            // if(isUserHero){player.body.gravity.y = 1500;}
-            player.body.gravity.y = 1500;
+            if(isUserHero){player.body.gravity.y = 1500;}
+            // player.body.gravity.y = 1500;
             player.body.collideWorldBounds = true;
             player.anchor.setTo(0.5, (head.height+torso.height/2)/player.body.height);
 
@@ -484,16 +484,17 @@ $(function()
                 var playerData = socketData.playerData;
                 if(playerData)
                 {
-                  player.body.acceleration = playerData.acceleration;
+                  // player.body.acceleration = playerData.acceleration;
                   player.body.position = playerData.position;
-                  for(let d in playerData.velocity)
-                  {
-                    var velocity = playerData.velocity[d];
-                    if(velocity)
-                    {
-                      player.body.velocity[d] = velocity;
-                    }
-                  }
+                  console.log(playerData.position);
+                  // for(let d in playerData.velocity)
+                  // {
+                  //   var velocity = playerData.velocity[d];
+                  //   if(velocity)
+                  //   {
+                  //     player.body.velocity[d] = velocity;
+                  //   }
+                  // }
                 }
                 var groundData = socketData.groundData;
                 if(groundData)
@@ -632,10 +633,9 @@ $(function()
 
           function sendFrameInfoToPartner()
           {
-            if(++frames >= 60/updatesPerSecond)
-            {
-              console.log('Update');
-              frames = 0;
+            // if(++frames >= 60/updatesPerSecond)
+            // {
+            //   frames = 0;
               if(isUserHero)
               {
                 var playerData = {
@@ -677,7 +677,7 @@ $(function()
                   platformsData: platformsData
                 });
               }
-            }
+            // }
           }
 
           function orientPlrSpriteDirection()

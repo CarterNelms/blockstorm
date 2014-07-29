@@ -2,7 +2,7 @@
 
 'use strict';
 
-process.env.DBNAME = 'capstone-test';
+process.env.DBNAME = 'blockstorm-test';
 
 // var cp = require('child_process');
 var expect = require('chai').expect;

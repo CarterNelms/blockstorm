@@ -3,7 +3,7 @@
 
 'use strict';
 
-process.env.DBNAME = 'capstone-test';
+process.env.DBNAME = 'blockstorm-test';
 
 var expect = require('chai').expect;
 var Mongo = require('mongodb');

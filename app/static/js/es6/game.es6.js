@@ -488,16 +488,16 @@ $(function()
                 var playerData = socketData.playerData;
                 if(playerData)
                 {
-                  // player.body.acceleration = playerData.acceleration;
+                  player.body.acceleration = playerData.acceleration;
                   player.body.position = playerData.position;
-                  // for(let d in playerData.velocity)
-                  // {
-                  //   var velocity = playerData.velocity[d];
-                  //   if(velocity)
-                  //   {
-                  //     player.body.velocity[d] = velocity;
-                  //   }
-                  // }
+                  for(let d in playerData.velocity)
+                  {
+                    var velocity = playerData.velocity[d];
+                    if(velocity)
+                    {
+                      player.body.velocity[d] = velocity;
+                    }
+                  }
                 }
                 var groundData = socketData.groundData;
                 if(groundData)
@@ -643,8 +643,8 @@ $(function()
               if(isUserHero)
               {
                 var playerData = {
-                  // acceleration: player.body.acceleration,
-                  // velocity: player.body.velocity,
+                  acceleration: player.body.acceleration,
+                  velocity: player.body.velocity,
                   position: player.body.position,
                   animation: currentAnimation,
                   scale: player.scale

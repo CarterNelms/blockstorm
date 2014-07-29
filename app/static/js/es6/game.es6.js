@@ -9,6 +9,7 @@ $(function()
   socket,
   // updatesPerSecond = 10,
   // frames = 0,
+  background,
   player,
   torso,
   head,
@@ -137,6 +138,7 @@ $(function()
           game.load.image('hand-back', `/assets/character/hand/back/${charType}.png`);
           game.load.image('pixel', '/assets/misc/pixel.png');
           game.load.image('grass1', '/assets/environment/grass1.png');
+          game.load.image('background', '/assets/environment/castle_bg.png');
           game.load.spritesheet('checkpoint', '/assets/platforms/checkpoint.png', 128, 64);
 
           game.stage.disableVisibilityChange = true;
@@ -162,6 +164,8 @@ $(function()
           world = game.physics.arcade;
           game.world.setBounds(0, 0, 1600, 1200);
           world.checkCollision.down = false;
+          
+          background = game.add.tileSprite(0, 0, game.world.width, game.world.height, 'background');
 
           buildPlayer();
           buildGround();
@@ -486,7 +490,6 @@ $(function()
                 {
                   // player.body.acceleration = playerData.acceleration;
                   player.body.position = playerData.position;
-                  console.log(playerData.position);
                   // for(let d in playerData.velocity)
                   // {
                   //   var velocity = playerData.velocity[d];
@@ -580,6 +583,7 @@ $(function()
           function raiseCamera()
           {
             var cameraStep = cameraSpeed * 0.01 * game.time.elapsed;
+            background.tilePosition.y += cameraStep * 0.6;
             if(isUserHero)
             {
               player.y += cameraStep;
@@ -639,8 +643,8 @@ $(function()
               if(isUserHero)
               {
                 var playerData = {
-                  acceleration: player.body.acceleration,
-                  velocity: player.body.velocity,
+                  // acceleration: player.body.acceleration,
+                  // velocity: player.body.velocity,
                   position: player.body.position,
                   animation: currentAnimation,
                   scale: player.scale

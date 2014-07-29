@@ -7,6 +7,8 @@ $(function()
 {
   var game,
   socket,
+  updatesPerSecond = 5,
+  frames = 0,
   player,
   torso,
   head,
@@ -630,46 +632,51 @@ $(function()
 
           function sendFrameInfoToPartner()
           {
-            if(isUserHero)
+            if(++frames >= 60/updatesPerSecond)
             {
-              var playerData = {
-                acceleration: player.body.acceleration,
-                velocity: player.body.velocity,
-                position: player.body.position,
-                animation: currentAnimation,
-                scale: player.scale
-              };
-
-              var groundData = {
-                position: grounds.children[0].body.position
-              };
-
-              let platformsData = platforms.children.map(platform=>
+              console.log('Update');
+              frames = 0;
+              if(isUserHero)
               {
-                return platform.platformData;
-              });
-
-              socket.emit('frameData', {
-                playerData: playerData,
-                groundData: groundData,
-                platformsData: platformsData,
-                score: score
-              });
-            }
-            else
-            {
-              let platformsData = platforms.children.map(platform=>
-              {
-                return {
-                  position: platform.body.position,
-                  scale: platform.scale,
-                  tint: platform.tint
+                var playerData = {
+                  acceleration: player.body.acceleration,
+                  velocity: player.body.velocity,
+                  position: player.body.position,
+                  animation: currentAnimation,
+                  scale: player.scale
                 };
-              });
 
-              socket.emit('frameData', {
-                platformsData: platformsData
-              });
+                var groundData = {
+                  position: grounds.children[0].body.position
+                };
+
+                let platformsData = platforms.children.map(platform=>
+                {
+                  return platform.platformData;
+                });
+
+                socket.emit('frameData', {
+                  playerData: playerData,
+                  groundData: groundData,
+                  platformsData: platformsData,
+                  score: score
+                });
+              }
+              else
+              {
+                let platformsData = platforms.children.map(platform=>
+                {
+                  return {
+                    position: platform.body.position,
+                    scale: platform.scale,
+                    tint: platform.tint
+                  };
+                });
+
+                socket.emit('frameData', {
+                  platformsData: platformsData
+                });
+              }
             }
           }
 

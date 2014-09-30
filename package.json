@@ -22,6 +22,7 @@
     "mongodb":         "*",
     "jade":            "*",
     "express-less":    "*",
+    "express-flash":   "*",
     "body-parser":     "*",
     "morgan":          "*",
     "method-override": "*",

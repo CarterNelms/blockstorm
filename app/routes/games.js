@@ -53,17 +53,20 @@ exports.play = (req, res)=>
         }
         else
         {
+          req.flash('message', "Sorry, you are not in that game.");
           res.redirect('/games');
         }
       }
       else
       {
+        req.flash("message", "Sorry, that game has ended.");
         res.redirect('/games');
       }
     });
   }
   else
   {
+    req.flash('message', "You must be logged in to play.");
     res.redirect('/games');
   }
 };

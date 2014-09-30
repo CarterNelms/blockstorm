@@ -5,6 +5,8 @@
 
 $(function()
 {
+  $('body').scrollTo('#game');
+
   var game,
   socket,
   // updatesPerSecond = 10,

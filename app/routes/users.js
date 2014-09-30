@@ -99,10 +99,12 @@ exports.authenticate = (req, res)=>
     if(user)
     {
       req.session.userId = user._id;
+      req.flash('message', "Welcome back, " + user.username + ".");
       res.redirect('/');
     }
     else
     {
+      req.flash('message', 'Your email / password combination could not be verified. Please double check your credentials and try again.');
       res.redirect('/login');
     }
   });
@@ -110,7 +112,8 @@ exports.authenticate = (req, res)=>
 
 exports.logout = (req, res)=>
 {
-  req.session = null;
+  req.session.userId = null;
+  req.flash('message', 'You have successfully logged out. Thanks for playing!');
   res.redirect('/');
 };
 
@@ -128,8 +131,9 @@ exports.register = (req, res)=>
 
 exports.create = (req, res)=>
 {
-  User.create(req.body, user=>
+  User.create(req.body, (user, msg)=>
   {
+    if(msg){ req.flash('message', msg); }
     if(user)
     {
       res.redirect('/');

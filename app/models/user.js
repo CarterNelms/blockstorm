@@ -19,7 +19,8 @@ class User
     this.username = obj.username;
     this.password = bcrypt.hashSync(obj.password[0], 8);
     this.color = obj.color;
-    this.isValid = false;
+    // this.isValid = false;
+    this.isValid = true;
     this.highScore = 0;
     this.location = {
       latitude: null,
@@ -221,7 +222,7 @@ class User
     {
       if(u)
       {
-        fn(null);
+        fn(null, 'That email is already in use.');
       }
       else
       {
@@ -241,17 +242,17 @@ class User
             }
             else
             {
-              fn(null);
+              fn(null, 'Username must be between 5 and 20 characters and can contain letters, numbers, underscores (_), and hyphens (-).');
             }
           }
           else
           {
-            fn(null);
+            fn(null, 'Password must be between 7 and 20 characters and must contain at least two types of characters: uppercase letters, lowercase letters, numbers, symbols.');
           }
         }
         else
         {
-          fn(null);
+          fn(null, 'Confirmed password does not match new password. Please retype your password in the Confirm Password field.');
         }
       }
     });

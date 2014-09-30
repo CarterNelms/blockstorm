@@ -10,6 +10,7 @@ var morgan         = require('morgan');
 var bodyParser     = require('body-parser');
 var methodOverride = require('method-override');
 var cookieSession  = require('cookie-session');
+var flash          = require('express-flash');
 var initMongo      = traceur.require(__dirname + '/lib/init-mongo.js');
 var initRoutes     = traceur.require(__dirname + '/lib/init-routes.js');
 
@@ -27,6 +28,7 @@ app.use('/less', less(__dirname + '/less'));
 app.use(bodyParser());
 app.use(methodOverride());
 app.use(cookieSession({keys:['SEC123', '321CES']}));
+app.use(flash());
 
 /* --- http server      */
 var server = require('http').createServer(app);

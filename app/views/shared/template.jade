@@ -61,6 +61,8 @@ html
         p Already a member? 
           a(href='#loginModal') Login here
 
+    if messages.message
+      #message= messages.message
     #page-wrap
       block content
 

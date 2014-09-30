@@ -12,6 +12,7 @@ block content
       tbody
         each user in users
           tr
-            td: a(href='/users/#{user._id}' style='color: #{user.color} !important;')= user.username 
+            //- td: a(href='/users/#{user._id}' style='color: #{user.color} !important;')= user.username 
+            td(style='color: #{user.color} !important;')= user.username 
             //- td(style='color: #{user.color} !important;')= user.username 
             td= user.highScore
